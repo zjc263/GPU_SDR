@@ -358,19 +358,19 @@ def set_line_delay(rate, delay_ns):
     global LINE_DELAY
 
     try:
-        if LINE_DELAY[str(rate/1e6)]: pass
+        if LINE_DELAY[str(int(rate/1e6))]: pass
         print_warning("Overwriting line delay for rate %d Msps"%rate)
     except KeyError:
         pass
 
-    LINE_DELAY[str(rate)] = delay_ns
+    LINE_DELAY[str(int(rate/1e6))] = delay_ns
 
-    print_debug("Line delay for rate %d Msps is set to %d ns"%(rate,delay_ns))
+    print_debug("Line delay for rate %d Msps is set to %d ns"%(int(rate/1e6),delay_ns))
 
 def load_delay_from_folder(foldername):
     '''
     Load line delay structure from folder matching the the acquisition rate with the right delay in the LINE_DELAY variable.
-    
+
     Note:
     * The line delay is NOT matched with frequency but only with the sps rate of the USRP.
 

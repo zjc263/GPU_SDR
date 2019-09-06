@@ -464,7 +464,7 @@ int RX_buffer_demodulator::process_direct(float2** __restrict__ input_buffer, fl
 }
 
 void RX_buffer_demodulator::close_direct(){
-  cudaStreamDestroy(internal_stream);
+  cublasDestroy(handle);
   cudaFree(DIRECT_tone_frquencies);
   cudaFree(DIRECT_tone_phases);
   cudaFree(direct_input);
@@ -477,6 +477,7 @@ void RX_buffer_demodulator::close_direct(){
       free(fir_taps);
       cudaFree(FIR_output);
   }
+  cudaStreamDestroy(internal_stream);
   return;
 }
 
@@ -648,6 +649,7 @@ int RX_buffer_demodulator::process_pfb_spec(float2** __restrict__ input_buffer, 
 }
 //clean up the pfb allocations
 void RX_buffer_demodulator::close_pfb(){
+    cublasDestroy(handle);
     cufftDestroy(plan);
     cudaStreamDestroy(internal_stream);
     cudaFree(d_params);
@@ -664,6 +666,7 @@ void RX_buffer_demodulator::close_pfb(){
 
 //clean up the pfb full spectrum
 void RX_buffer_demodulator::close_pfb_spec(){
+    cublasDestroy(handle);
     cufftDestroy(plan);
     cudaStreamDestroy(internal_stream);
     cudaFree(d_params);
@@ -679,6 +682,7 @@ void RX_buffer_demodulator::close_pfb_spec(){
 
 //clean up the chirp demod allocation
 void RX_buffer_demodulator::close_chirp(){
+    cublasDestroy(handle);
     cudaStreamDestroy(internal_stream);
     cudaFree(d_parameter);
     cudaFree(input);

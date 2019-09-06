@@ -472,6 +472,7 @@ bool TXRX::stop(bool force){
                 A_RX_worker = nullptr;
                 //reset the parameter pointer
                 A_current_rx_param = nullptr;
+                A_rx_dem->close();
             }
             if (B_RX_worker){
                 //close the rx worker
@@ -481,6 +482,7 @@ bool TXRX::stop(bool force){
                 B_RX_worker = nullptr;
                 //reset the parameter pointer
                 B_current_rx_param = nullptr;
+                B_rx_dem->close();
             }
 
             //force close data output threads

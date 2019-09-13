@@ -1137,8 +1137,13 @@ def is_VNA_analyzed(filename, usrp_number = 0):
     :param usrp_number: usrp server number.
     :return: boolean results of the check.
     '''
+    
     filename = format_filename(filename)
     f = bound_open(filename)
+    if f is None:
+        err_msg = "Cannot open the VNA file %s in is_VNA_analyzed() function" %  filename
+        print_error(err_msg)
+        raise ValueError (err_msg)
     try:
         grp = f["VNA_%d"%(usrp_number)]
         if grp['frequency'] is not None: pass

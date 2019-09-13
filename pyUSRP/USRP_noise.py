@@ -190,8 +190,8 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
         except KeyError:
             print_warning("Cannot find associated line delay for a rate of %d Msps. Setting to 0s."%(int(rate/1e6)))
             delay = 0
-    else:
-        print_debug("Using a delay of %d ns" % int(delay*1e9))
+
+    print_debug("Using a delay of %d ns" % int(delay*1e9))
 
     if mode == "PFB":
         # Calculate the number of channel needed per rf frontend A
@@ -494,8 +494,9 @@ def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF =
         except KeyError:
             print_warning("Cannot find associated line delay for a rate of %d Msps. Setting to 0s."%(int(rate/1e6)))
             delay = 0
-    else:
-        print_debug("Using a delay of %d ns" % int(delay*1e9))
+
+    print_debug("Using a delay of %d ns" % int(delay*1e9))
+
     if mode == "PFB":
         # Calculate the number of channel needed
         if len(tones)>1:
@@ -1458,8 +1459,13 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
         fit_source_filename = format_filename(VNA_file)
         extra_source_info = " Fit data taken from \'%s\'."%fit_source_filename
         print_debug(extra_source_info)
-    fit_param = get_fit_param(fit_source_filename)
-    fit_data = get_fit_data(fit_source_filename)
+    try:
+        fit_param = get_fit_param(fit_source_filename)
+        fit_data = get_fit_data(fit_source_filename)
+        fit_present = True
+    except ValueError:
+        fit_present = False
+        print_warning("There is no fit data in the VNA, diagnostic will only overplot VNA and averaged noise")
 
     #check backend existance
     if ((backend!='matplotlib') and (backend!='plotly')):
@@ -1467,20 +1473,31 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
         print_error(err_msg)
         raise ValueError(err_msg)
 
-    #check Resonators group existance
-    if resonator_grp_name not in noise_file.keys():
-        err_msg = "Cannot find the Resonator group in the file %s" % noise_filename
+    if fit_present:
+        #check Resonators group existance
+        if resonator_grp_name not in noise_file.keys():
+            err_msg = "Cannot find the Resonator group in the file %s" % noise_filename
+            print_error(err_msg)
+            raise ValueError(err_msg)
+
+        #check resonator group length matching
+        if (len(fit_data) != len(info['wave_type'])):
+            warning_msg = "The length of the resonator group (%d) does not match the number of tones (%d) in file %s."%(len(fit_data), len(info['wave_type']), fit_source_filename)
+            print_warning(warning_msg)
+
+        #check frequency matching
+        tones = np.asarray(info['freq']) + info['rf']
+        fit_freqs = np.asarray([p['f0'] for p in fit_param])
+    elif VNA_file is None:
+        err_msg = "Without fitting parameters a VNA filename must be provided to the noise diagnostic function"
         print_error(err_msg)
         raise ValueError(err_msg)
 
-    #check resonator group length matching
-    if (len(fit_data) != len(info['wave_type'])):
-        warning_msg = "The length of the resonator group (%d) does not match the number of tones (%d) in file %s."%(len(fit_data), len(info['wave_type']), fit_source_filename)
-        print_warning(warning_msg)
-
-    #check frequency matching
-    tones = np.asarray(info['freq']) + info['rf']
-    fit_freqs = np.asarray([p['f0'] for p in fit_param])
+    else:
+        #load original data with the whole VNA (may be updated to a VNA portion)
+        frequency, original_data = get_VNA_data(fit_source_filename)
+        # if the fit data are not present use the tones value instead
+        fit_data = [{'frequency':frequency} for x in tx_info['freq']]
 
     #retrive calibrations
     calibrations = [(1./tx_info['ampl'][i])*USRP_calibration/(10**((USRP_power + tx_info['gain'])/20.)) for i in range(len(tx_info['ampl']))]
@@ -1515,33 +1532,34 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
 
         os.chdir(diagnostic_folder_name)
         for i in range(len(fit_data)):
-            #Plot single channel data
-            fig = pl.figure()
-            fig.set_size_inches(fig_size[0], fig_size[1])
-            ax = fig.add_subplot(111)
 
-            label = "Channel %.2f MHz"%(fit_param[i]['f0'])
             current_color = get_color(i)
             edge_color = 'k'
             if current_color == 'black': edge_color = 'grey'
 
-            original_data = fit_data[i]['original']
+            if fit_present:
+                #Plot single channel data
+                fig = pl.figure()
+                fig.set_size_inches(fig_size[0], fig_size[1])
+                ax = fig.add_subplot(111)
+                label = "Channel %.2f MHz"%(fit_param[i]['f0'])
+                original_data = fit_data[i]['original']
+                ax.plot(original_data.real, original_data.imag , color = current_color, label = label, alpha = 0.4)
+                ax.scatter(noise_points[i].real  * calibrations[i], noise_points[i].imag  * calibrations[i], color = current_color, edgecolors=edge_color,linewidth=2,s = 110)
+                fig.suptitle(title)
+                ax.set_aspect('equal','datalim')
+                ax.legend()
+                ax.grid()
+                fig.savefig("diagnostic_channel_%d_IQ.png"%i)
+                pl.close(fig)
+            else:
+                label = "Channel %.2f MHz"%(tx_info['freq'][i] + tx_info['rf'])
 
-            ax.plot(original_data.real, original_data.imag , color = current_color, label = label, alpha = 0.4)
-            ax.scatter(noise_points[i].real  * calibrations[i], noise_points[i].imag  * calibrations[i], color = current_color, edgecolors=edge_color,linewidth=2,s = 110)
-            fig.suptitle(title)
-            ax.set_aspect('equal','datalim')
-            ax.legend()
-            ax.grid()
-            fig.savefig("diagnostic_channel_%d_IQ.png"%i)
-            pl.close(fig)
-
-
-            #plot phase and magnitude
+            #plot magnitude
             fig = pl.figure()
             fig.set_size_inches(fig_size[0], fig_size[1])
             ax = fig.add_subplot(111)
-            ax.plot(fit_data[i]["frequency"],db(np.abs(original_data)),  label = "VNA data",  color = current_color)
+            ax.plot(fit_data[i]["frequency"],db(np.abs(original_data)),  label = "VNA data",  color = current_color, zorder=1)
             if points is not None:
                 freq_data = [tx_info["rf"] + tx_info["freq"][i] for tt in range(len(noise_points[i]))]
                 magdata = db(np.abs(noise_points[i]) *calibrations[i])
@@ -1550,11 +1568,37 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
                 freq_data = [tx_info["rf"] + tx_info["freq"][i]]
                 magdata = [db(np.abs(noise_points[i]) * calibrations[i])]
                 diff_mag = magdata[0] - db(np.abs(original_data)[find_nearest(fit_data[i]["frequency"], freq_data[0])])
-            ax.scatter(freq_data, magdata , label = "Averaged noise data", color = current_color, edgecolors=edge_color,linewidth=2,s = 110)
+            if not fit_present:
+                ax.scatter(freq_data, magdata , label = "Averaged noise data", color = 'r', zorder=2)
+            else:
+                ax.scatter(freq_data, magdata , label = "Averaged noise data", color = current_color, edgecolors=edge_color,linewidth=2,s = 110, zorder=2)
             ax.legend()
             ax.grid()
             fig.suptitle(label+"\n average discrepancy: %.2fdB"%diff_mag)
+            ax.set_xlabel('Frequency [Hz]')
+            ax.set_ylabel('Phase [Rad]')
             fig.savefig("diagnostic_channel_%d_mag.png"%i)
+            pl.close(fig)
+
+            #plot phase
+            fig = pl.figure()
+            fig.set_size_inches(fig_size[0], fig_size[1])
+            ax = fig.add_subplot(111)
+            ax.plot(fit_data[i]["frequency"],np.angle(original_data),  label = "VNA data",  color = current_color, zorder=1)
+            phasedata = np.angle(noise_points[i])
+            if points is not None:
+                freq_data = [tx_info["rf"] + tx_info["freq"][i] for tt in range(len(noise_points[i]))]
+            else:
+                freq_data = [tx_info["rf"] + tx_info["freq"][i]]
+            if not fit_present:
+                ax.scatter(freq_data, phasedata , label = "Averaged noise data", color = 'r', zorder=2)
+            else:
+                ax.scatter(freq_data, phasedata , label = "Averaged noise data", color = current_color, edgecolors=edge_color,linewidth=2,s = 110, zorder=2)
+            ax.legend()
+            ax.grid()
+            ax.set_xlabel('Frequency [Hz]')
+            ax.set_ylabel('Phase [Rad]')
+            fig.savefig("diagnostic_channel_%d_pha.png"%i)
             pl.close(fig)
 
         os.chdir("..")

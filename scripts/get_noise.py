@@ -27,7 +27,7 @@ def run(rate,freq,front_end, tones, lapse, decimation, gain, vna, mode, pf, trig
 
     #trigger = u.trigger_template(rate = rate/decimation)
     noise_filename = u.Get_noise(tones, measure_t = lapse, rate = rate, decimation = decimation, amplitudes = amplitudes,
-                              RF = freq, output_filename = None, Front_end = front_end,Device = None, delay = 0,
+                              RF = freq, output_filename = None, Front_end = front_end,Device = None, delay = None,
                               pf_average = pf, tx_gain = gain, mode = mode, trigger = trigger)
     if vna is not None:
         u.copy_resonator_group(vna, noise_filename)
@@ -54,6 +54,8 @@ if __name__ == "__main__":
     parser.add_argument('--random', '-R', help='Generate random tones for benchmark and test reason', type=int)
     parser.add_argument('--trigger', '-tr', help='String describing the trigger to use. Default is no trigger. Use the name of the trigger classes defined in the trigger module with no parenthesis', type=str)
     parser.add_argument('--DAC_division', '-dd', help='Divide the DAC to use only 1./this for each tone. Must be >= len(tones).', type=int, default=None)
+    parser.add_argument('--delay', '-dy', help='Optional delay file where to souce delay information', type=str)
+
 
     args = parser.parse_args()
     try:
@@ -62,6 +64,10 @@ if __name__ == "__main__":
         pass
 
     os.chdir(args.folder)
+
+    if args.delay is not None:
+        dealy_filename = u.format_filename(args.delay)
+        u.load_delay_from_file(dealy_filename)
 
     if args.VNA is not None:
         rf_freq, tones = u.get_tones(args.VNA)
@@ -93,6 +99,9 @@ if __name__ == "__main__":
         guard_tones = np.asarray(guard_tones)*1e6
         # it's important that guard tones are at the end of the tone array !!!
         tones = np.concatenate((tones,guard_tones))
+
+    if args.DAC_division is None:
+        args.DAC_division = 1
 
     if args.DAC_division  >= len(tones):
         amplitudes = [1./args.DAC_division for x in tones]

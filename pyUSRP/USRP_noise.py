@@ -1576,7 +1576,7 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
             ax.grid()
             fig.suptitle(label+"\n average discrepancy: %.2fdB"%diff_mag)
             ax.set_xlabel('Frequency [Hz]')
-            ax.set_ylabel('Phase [Rad]')
+            ax.set_ylabel('Magnitude [dB]')
             fig.savefig("diagnostic_channel_%d_mag.png"%i)
             pl.close(fig)
 

@@ -208,7 +208,7 @@ RX_buffer_demodulator::RX_buffer_demodulator(param* init_parameters, bool init_d
             //the chirpness is expressed as double this expression somewhere
             //h_parameter.chirpness = ((float)(parameters->chirp_f[0]-parameters->freq[0])/((float)h_parameter.num_steps-1.))/(float)parameters->rate;
             h_parameter.chirpness = ((std::pow(2,32)-1)*(parameters->chirp_f[0]-parameters->freq[0])/((double)h_parameter.num_steps-1.))/(double)parameters->rate;
-
+            print_debug("chirpness parameter: ",h_parameter.chirpness/2147483647.5);
             //the algorithm used for chirp generation use this value as frequency offset
             //h_parameter.f0 = (float)parameters->freq[0]/(float)parameters->rate;
             h_parameter.f0 =  (std::pow(2,32)-1) * ((double)parameters->freq[0]/(double)parameters->rate);

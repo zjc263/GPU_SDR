@@ -331,26 +331,6 @@ __global__ void make_rand(curandState *state, float2 *vector, int len, float sca
     }
 }
 
-
-void print_chirp_params(std::string comment, chirp_parameter cp){
-
-}
-
-__device__ float modulus(float number, float modulus){
-    return number - __float2int_rd(number/modulus)*modulus;
-}
-
-__device__ unsigned int round_index(unsigned int last_index, unsigned int offset, unsigned int num_f, unsigned int f_len){
-
-    unsigned long int pos = last_index + offset;
-
-    unsigned long int chirp_len = f_len * num_f;
-
-    return  (pos - ((pos/chirp_len) * chirp_len));//pos%chirp_len;
-
-}
-
-
 //generate a chirp waveform in a gpu buffer
 __global__ void chirp_gen(
 
@@ -372,8 +352,6 @@ __global__ void chirp_gen(
 
         //take in account previous calls and bookeep phase
         effective_index = (last_index + offset) % (info->num_steps * info->length);
-        //effective_index = round_index(info->last_index,offset,info->num_steps,info->length);
-        //effective_index = round_index
 
         //calculate current frequency to generate
         frequency_index = effective_index/info->length;
@@ -384,7 +362,7 @@ __global__ void chirp_gen(
         phase_correction = ( info->chirpness * (info->length * q_phase) );
 
         //evaluate sine index
-        index =  (effective_index * (info->f0 + frequency_index * info->chirpness ) - phase_correction);
+        index =  effective_index * (info->f0 + frequency_index * info->chirpness ) - phase_correction;
 
         output[offset].x = sinpi(((double)(index)/2147483647.5))*scale;
         output[offset].y = -cospi(((double)(index)/2147483647.5))*scale;

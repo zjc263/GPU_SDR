@@ -735,9 +735,12 @@ def VNA_analysis(filename, usrp_number = 0):
         calibration.append( (1./ampls[fr])*USRP_calibration/(10**((USRP_power + gains[fr])/20.)) )
         print_debug("Calculating calibration with %d dB gain and %.3f amplitude correction"%(gains[fr],ampls[fr]))
 
+        # The final frequency is slighly different than expected (single_frontend['swipe_s'][0]) due to a kernel integer calculation
+        effective_final_frequency = ((single_frontend['chirp_f'][0]-single_frontend['freq'][0])/(1.0*single_frontend['swipe_s'][0]-1))*single_frontend['swipe_s'][0]
+
         if single_frontend['decim'] == 1:
             # Lock-in decimated case -> direct map.
-            freq_axis_tmp = np.linspace(single_frontend['freq'][0],single_frontend['chirp_f'][0], single_frontend['swipe_s'][0],
+            freq_axis_tmp = np.linspace(single_frontend['freq'][0],effective_final_frequency,single_frontend['swipe_s'][0] ,
                         dtype = np.float64) + single_frontend['rf']
             if iterations>1:
                 S21_axis_tmp = np.mean(np.split(openH5file(filename, front_end = active_front_ends[fr])[0], iterations),axis = 0)
@@ -748,7 +751,7 @@ def VNA_analysis(filename, usrp_number = 0):
 
         elif single_frontend['decim'] > 1:
             # Over decimated case.
-            freq_axis_tmp  = np.linspace(single_frontend['freq'][0], single_frontend['chirp_f'][0], single_frontend['swipe_s'][0]/single_frontend['decim'],
+            freq_axis_tmp  = np.linspace(single_frontend['freq'][0], effective_final_frequency, single_frontend['swipe_s'][0]/single_frontend['decim'],
                                     dtype=np.float64) + single_frontend['rf']
             if iterations > 1:
                 S21_axis_tmp = np.mean(np.split(openH5file(filename, front_end=active_front_ends[fr])[0], iterations), axis=0)

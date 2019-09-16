@@ -736,7 +736,11 @@ def VNA_analysis(filename, usrp_number = 0):
         print_debug("Calculating calibration with %d dB gain and %.3f amplitude correction"%(gains[fr],ampls[fr]))
 
         # The final frequency is slighly different than expected (single_frontend['swipe_s'][0]) due to a kernel integer calculation
-        effective_final_frequency = ((single_frontend['chirp_f'][0]-single_frontend['freq'][0])/(1.0*single_frontend['swipe_s'][0]-1))*single_frontend['swipe_s'][0]
+        #effective_final_frequency = ((single_frontend['chirp_f'][0]-single_frontend['freq'][0])/(1.0*single_frontend['swipe_s'][0]-1))*single_frontend['swipe_s'][0]
+        df = int((2.0**32 - 1)*(single_frontend['chirp_f'][0]-single_frontend['freq'][0])/(single_frontend['swipe_s'][0]-1.)/float(single_frontend['rate']))
+        df = df * (single_frontend['swipe_s'][0]-1.) * float(single_frontend['rate']) / (2.0**32 - 1)
+        effective_final_frequency = df + single_frontend['freq'][0]
+        # comment about f0 offset
 
         if single_frontend['decim'] == 1:
             # Lock-in decimated case -> direct map.

@@ -963,18 +963,44 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
 
         for i in range(len(info['tones'])):
             readout_power = get_readout_power(filename, i, tx_front_end, usrp_number) - cryostat_attenuation
-            label = filename+"<br>"
-            label += "%.2f MHz" % (info['tones'][i] / 1e6)
             R = real[i]
             I = imag[i]
             if backend == 'matplotlib':
+                label = filename+"\n"
+                label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
                 label += "\nReadout pwr %.1f dBm" % (readout_power)
                 if add_info_labels is not None:
                     label += "\n" + add_info_labels[f_count]
                 ax.semilogx(freq, R, '--', color=get_color(f_count + i), label="Real " + label)
                 ax.semilogx(freq, I, color=get_color(f_count + i), label="Imag " + label)
             elif backend == 'plotly':
+                label = filename+"<br>"
+                label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
                 label += "<br>Readout pwr %.1f dBm" % (readout_power)
+                updatemenus = list([
+                    dict(active=1,
+                         buttons=list([
+                            dict(label='Log Scale',
+                                 method='update',
+                                 args=[{'visible': [True, True]},
+                                       {'title': 'Log scale',
+                                        'xaxis': {'type': 'log'}}]),
+                            dict(label='Linear Scale',
+                                 method='update',
+                                 args=[{'visible': [True, False]},
+                                       {'title': 'Linear scale',
+                                        'xaxis': {'type': 'linear'}}])
+                            ]),
+                            direction = 'left',
+                            pad = {'r': 10, 't': 10},
+                            showactive = False,
+                            type = 'buttons',
+                            x = 0.9,
+                            xanchor = 'left',
+                            y = 1,
+                            yanchor = 'top'
+                        )
+                    ])
                 if add_info_labels is not None:
                     label += "<br>" + add_info_labels[f_count]
                 fig.append_trace(go.Scatter(
@@ -1014,7 +1040,20 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
         if title_info is not None:
             plot_title += "<br>" + title_info
 
+        fig['layout'].update(updatemenus=updatemenus)
         fig['layout'].update(title=plot_title)
+        fig['layout'].update(xaxis_type="log")
+
+        fig['layout'].update(
+            images=[dict(
+                source="https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Caltech_Logo.svg/1000px-Caltech_Logo.svg.png",
+                xref="paper", yref="paper",
+                x=0, y=1,
+                sizex=0.1, sizey=0.1,
+                xanchor="left", yanchor="bottom"
+            )],
+        )
+
         output_filename += ".html"
         if html:
             print_debug("Noise plotting done")

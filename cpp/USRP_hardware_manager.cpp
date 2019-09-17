@@ -24,7 +24,6 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
     if(not sw_loop){
 
         this_usrp_number = usrp_number;
-;
 
         //recursively look for usrps
         dev_addrs = uhd::device::find(hint);
@@ -45,13 +44,22 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
 
 				//uhd::device_addr_t args("addr=192.168.30.2,second_addr=192.168.40.2");
-				if(device_arguments.compare("noarg")!=0){
+				device_arguments = default_arguments;
+				if(device_arguments.compare(default_arguments)==0){
 					uhd::device_addr_t args(device_arguments);
 					main_usrp = uhd::usrp::multi_usrp::make(args);
 					std::cout<< "Creating device with arguments: "<<device_arguments <<std::endl;
 				}else{
+					print_warning("Multi-USRP configuration does not set the 20MHz Dboard clock rate");
 					main_usrp = uhd::usrp::multi_usrp::make(dev_addrs[usrp_number]);
 				}
+
+				// Get Dboards or channels properties.
+				fill_board_prop();
+
+				// Print those properties.
+				pprint_board_prop();
+
         //set the clock reference
         main_usrp->set_clock_source(settings->clock_reference);
 
@@ -92,6 +100,131 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
     if(not sw_loop)main_usrp->set_time_now(0.);
 
     BOOST_LOG_TRIVIAL(info) << "Hardware manager initilaized";
+}
+
+//! This function is assuming that each dcard has a TX and an RX port. for different configuration it may fail.
+void hardware_manager::fill_board_prop(){
+	BOOST_LOG_TRIVIAL(info) << "Getting SDR channel informations for USRP "<< this_usrp_number;
+	D_board_prop tmp_prop;
+	std::vector<std::string> LO_names; // Used to check the existance of at least one tunable LO.
+	std::vector<std::string> G_names; // Used to check the existance of at least one tunable gain stage.
+	size_t num_rx = main_usrp->get_rx_num_channels();
+	size_t num_tx = main_usrp->get_tx_num_channels();
+	if (num_rx!=num_tx){
+		print_warning(warnings.uneven_channels_warning);
+		BOOST_LOG_TRIVIAL(warning) << warnings.uneven_channels_warning << std::endl << "RX channels: "<< num_rx << std::endl << "TX channels: "<< num_tx;
+	}
+	for(size_t i=0; i<num_rx; i++){
+		tmp_prop.present = (bool)true; // In case one is not present an error may be thrown and this could be set to false.
+
+		// All channel are supposed to have TX and RX with the same capabilities, otherwise throws warnings.
+		std::string short_name_rx = main_usrp->get_rx_subdev_name(i).substr(0,3);
+		std::string short_name_tx = main_usrp->get_tx_subdev_name(i).substr(0,3);
+		if(short_name_tx.compare(short_name_rx)!=0){
+			std::cout<<"Warning found while scanning channel "<< i << " USRP: " << this_usrp_number<< std::endl;
+			print_warning(warnings.different_channels_warning);
+			std::stringstream ss;
+			ss << "TX name: "<< short_name_tx <<" RX name: "<< short_name_rx;
+			print_warning(ss.str());
+
+			BOOST_LOG_TRIVIAL(warning) << warnings.different_channels_warning << std::endl << "RX channel name: "<< short_name_rx << std::endl << "TX channel name: "<< main_usrp->get_tx_subdev_name(i);
+		}
+
+		// Determine if you can tune RX and TX at the same time.
+		tmp_prop.sync_tune = ((short_name_rx.compare("UBX")==0) or (short_name_rx.compare("UBX")==0))?true:false;
+
+		// From here all info are collected from the RX line.
+		tmp_prop.name = short_name_rx;
+		LO_names = main_usrp->get_rx_lo_sources("ALL_LOS",i);
+		if (LO_names.size() > 0){
+			tmp_prop.has_mixers = (bool)true;
+			tmp_prop.max_freq = main_usrp->get_rx_freq_range(i).stop();
+
+			// This value include also the firmware digital demodulation step.
+			tmp_prop.min_freq = main_usrp->get_rx_freq_range(i).start();
+		}else{
+			tmp_prop.has_mixers = (bool)false;
+			tmp_prop.max_freq = -1;
+			tmp_prop.min_freq = -1;
+		}
+		G_names = main_usrp->get_rx_gain_names(i);
+		if (G_names.size() > 0){
+			tmp_prop.has_gain = (bool)true;
+			tmp_prop.min_gain = main_usrp->get_rx_gain_range(i).start(); //BUG in UHD???
+			tmp_prop.max_gain = main_usrp->get_rx_gain_range(i).stop();
+		}else{
+			tmp_prop.has_gain = (bool)false;
+			tmp_prop.min_gain = -1;
+			tmp_prop.max_gain = -1;
+		}
+		usrp_props.push_back(tmp_prop);
+	}
+	BOOST_LOG_TRIVIAL(info) << "Channels info collected for USRP " << this_usrp_number;
+}
+
+void hardware_manager::pprint_board_prop(){
+	BOOST_LOG_TRIVIAL(info) << "Printing boards informations for USRP " << this_usrp_number;
+	std::vector<std::string> litteral = {"A","B","C","D","E"};
+	if (litteral.size()<usrp_props.size()){
+		print_warning(warnings.chanel_to_litteral_failed);
+		BOOST_LOG_TRIVIAL(debug) << warnings.chanel_to_litteral_failed;
+		return;
+	}
+	std::stringstream ss;
+	ss<< "\033[40;1;37m                SDR # "<< this_usrp_number << "                \033[0m"<<std::endl;
+	ss<< "\033[47;1;30m\t\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		ss<<"RF "<<  litteral[i]<<"\t";
+	}
+	ss<<"\033[0m"<< std::scientific <<std::endl;
+	ss<< "Name\033[0m\t\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		if(usrp_props[i].has_mixers){
+			ss<< usrp_props[i].name <<"\t";
+		}else{
+			ss<<"\t-\t\t";
+		}
+	}
+	ss<<std::endl;
+	ss<< "LO max[MHz]\033[0m\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		if(usrp_props[i].has_mixers){
+			ss<< (long int)(usrp_props[i].max_freq/1e6) <<"\t";
+		}else{
+			ss<<"\t-\t\t";
+		}
+	}
+	ss<<std::endl;
+	ss<< "LO min[MHz]\033[0m\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		if(usrp_props[i].has_mixers){
+			ss << (long int)(usrp_props[i].min_freq/1e6) <<"\t";
+		}else{
+			ss<<"\t-\t\t";
+		}
+	}
+	ss<<std::endl;
+	ss<< "Gain[dB]\033[0m\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		if(usrp_props[i].has_gain){
+			ss<<usrp_props[i].min_gain<<"/" << (usrp_props[i].max_gain) <<"\t";
+		}else{
+			ss<<"\t-\t\t";
+		}
+	}
+	ss<<std::endl;
+	ss<< "sync_t\t\033[0m\t";
+	for(size_t i = 0; i<usrp_props.size(); i++){
+		if(usrp_props[i].sync_tune){
+			ss<< "true" <<"\t";
+		}else{
+			ss<<"false\t";
+		}
+	}
+	ss<<std::endl;
+
+	ss<<std::endl;
+	std::cout<<ss.str();
 }
 
 //! @brief This function set the USRP device with user parameters.

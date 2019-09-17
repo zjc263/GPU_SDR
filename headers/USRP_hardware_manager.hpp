@@ -7,6 +7,13 @@
 #include "USRP_server_memory_management.hpp"
 #include <uhd/types/time_spec.hpp>
 
+//! @bried properties of a doughercard in each USRP.
+//! The sync_tune represent the possibility to tone RX and TX LOs at the same time mantaining the phase coherent between firmware resets. This only happens if the car is a UBX or SBX.
+struct D_board_prop{
+  std::string name;
+  bool present, has_mixers, has_gain, sync_tune;
+  long int max_freq, min_freq, min_gain, max_gain;
+};
 
 //! @brief Manages the hardware I/O of one usrp unit.
 class hardware_manager{
@@ -97,9 +104,22 @@ class hardware_manager{
         //! @brief Release the memory associated with pointers holded by a rx queue using the respective memory allocator.
         int clean_rx_queue(rx_queue* RX_queue, preallocator<float2>* memory);
 
+        //! @brief Represent the state of the frontend A receiver thread operation status.
         std::atomic<bool> B_rx_thread_operation;
+
+        //! @brief Represent the state of the frontend B receiver thread operation status.
         std::atomic<bool> A_rx_thread_operation;
+
+        //! @brief Vector of board properties, each element of the vector represent a frontend.
+        std::vector<D_board_prop> usrp_props;
+
+        //! @brief make a good looking print of the doughercards properties in the server terminal window.
+        void pprint_board_prop();
+
     private:
+
+        //! @ brief Fill the board properties struct.
+        void fill_board_prop();
 
         //! @brief Describe the state of the TX settling time for the A front_end.
         bool tx_loaded_cmd_A;

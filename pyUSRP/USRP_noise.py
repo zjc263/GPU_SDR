@@ -876,7 +876,9 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
     add_info_labels = None
     try:
         add_info_labels = kwargs['add_info']
-        if len(add_info_labels) != len(filenames):
+        if add_info_labels is None:
+            pass
+        elif len(add_info_labels) != len(filenames):
             print_warning("Cannot add info labels on noise plot. len(add_info_labels)(%d)!=len(filenames)(%d)"%(len(add_info_labels),len(filenames)))
             add_info_labels = None
     except KeyError:

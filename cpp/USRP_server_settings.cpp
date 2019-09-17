@@ -3,7 +3,8 @@
 int TCP_SYNC_PORT = 61360;
 int TCP_ASYNC_PORT = 22001;
 
-std::string device_arguments = "noarg";
+std::string default_arguments = "dboard_clock_rate=20e6";
+std::string device_arguments = "dboard_clock_rate=20e6";
 
 std::string w_type_to_str(w_type enumerator){
     std::string comp_string;
@@ -219,6 +220,17 @@ void SetThreadName(boost::thread* thread, const char* threadName){
    auto handle = thread->native_handle();
    pthread_setname_np(handle,threadName);
 }
+
+//////////////////////////
+// WARNINGS DEFINITIONS //
+//////////////////////////
+struct GPU_SDR_warning warnings = {
+  .uneven_channels_warning = "The harware_manager object is assuming that each channel on the SDR has an equal NUMBER of TX and RX lines. Somthing may behave unexpectedly",
+  .different_channels_warning = "The harware_manager object is assuming that each channel on the SDR has an equal KIND of TX and RX lines. Somthing may behave unexpectedly",
+  .chanel_to_litteral_failed = "The print function does not have enough litteral descriptor for the number of channel specified"
+};
+
+
 /*
 void SetThreadName( const char* threadName)
 {

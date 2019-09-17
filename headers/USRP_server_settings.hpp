@@ -108,6 +108,7 @@ extern int TCP_SYNC_PORT;
 extern int TCP_ASYNC_PORT;
 
 extern std::string device_arguments;
+extern std::string default_arguments;
 
 //valid for TX and RX operations, describe the signal generation/demodulation.
 enum w_type { TONES, CHIRP, NOISE , RAMP, NODSP, SWONLY, DIRECT};
@@ -238,4 +239,15 @@ void Thread_Prioriry(boost::thread& Thread, int priority, int affinity);
 //! Under linux one can use htop or ps to display wich thread is running and how much memory/ CPU resources are being used.
 //! This function set the displayed name of the thread. It does not work with htop.
 void SetThreadName(boost::thread* thread, const char* threadName);
+
+//! @collection of GPU_SDR messages so that are all defined in the same place.
+struct GPU_SDR_warning{
+  std::string uneven_channels_warning;
+  std::string different_channels_warning;
+  std::string chanel_to_litteral_failed;
+};
+
+//! @brief Collection of warning messages from the server.
+extern GPU_SDR_warning warnings;
+
 #endif

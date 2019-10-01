@@ -1016,6 +1016,13 @@ def Param_to_H5(H5fp, parameters_class, trigger = None, **kwargs):
                 trigger_name = str(trigger.__class__.__name__)
                 trigger_ds.attrs.create("trigger_fcn", data = trigger_name)
 
+                if trigger_name == "amplitude_trigger":
+                    trigger_ds.attrs.create("bounds", data = trigger.bounds)
+                    trigger_ds.attrs.create("nglitch", data = trigger.nglitch)
+                    trigger_ds.attrs.create("glitch_indices", data = trigger.glitch_indices)
+                    trigger_ds.attrs.create("samples_per_packet", data = trigger.samples_per_packet)
+                    trigger_ds.attrs.create("triggering_chs", data=trigger.channels)
+
                 trigger.dataset_init(rx_group)
 
             for param_name in parameters_class.parameters[ant_name]:
@@ -1137,7 +1144,7 @@ def is_VNA_analyzed(filename, usrp_number = 0):
     :param usrp_number: usrp server number.
     :return: boolean results of the check.
     '''
-    
+
     filename = format_filename(filename)
     f = bound_open(filename)
     if f is None:

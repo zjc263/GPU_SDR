@@ -136,6 +136,13 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                 current_len_trigger = len(trigger_dataset)
                 trigger_dataset.resize(current_len_trigger+1,0)
                 trigger_dataset[current_len_trigger] = index
+
+                trigger_name = str(trigger.__class__.__name__)
+                if trigger_name == "amplitude_trigger":
+                    trigger_dataset.attrs["bounds"] = trigger.bounds
+                    trigger_dataset.attrs["nglitch"] = trigger.nglitch
+                    trigger_dataset.attrs["glitch_indices"] = trigger.glitch_indices
+                    trigger_dataset.attrs["samples_per_packet"] = trigger.samples_per_packet
         try:
             if data_shape[0] < metadata['channels']:
                 print_warning("Main dataset in H5 file not initialized.")

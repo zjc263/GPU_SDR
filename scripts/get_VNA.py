@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     os.chdir(args.folder)
 
-    if not u.Connect():
+    if not Connect():
         u.print_error("Cannot find the GPU server!")
         exit()
 
@@ -120,5 +120,5 @@ if __name__ == "__main__":
                     delay_over = args.delay_over
                 )
 
-    u.Disconnect()
+    Disconnect()
     # Data analysis and plotting will be in an other python script

@@ -27,7 +27,7 @@ import datetime
 # plotly stuff
 from plotly.graph_objs import Scatter, Layout
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly
 import colorlover as cl
@@ -907,7 +907,7 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
 
 
     elif backend == 'plotly':
-        fig = tools.make_subplots(rows=1, cols=1)
+        fig = plotly.subplots.make_subplots(rows=1, cols=1)
         fig['layout']['xaxis1'].update(title="Frequency [Hz]")#), type='log')
 
     y_name_set = True
@@ -1050,13 +1050,14 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
             images=[dict(
                 source="https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Caltech_Logo.svg/1000px-Caltech_Logo.svg.png",
                 xref="paper", yref="paper",
-                x=0, y=1,
+                x=0, y=0,
                 sizex=0.1, sizey=0.1,
                 xanchor="left", yanchor="bottom"
             )],
         )
 
         output_filename += ".html"
+        style_plotly_figure(fig)
         if html:
             print_debug("Noise plotting done")
             return  plotly.offline.plot(fig, filename=output_filename, auto_open=False, output_type = 'div')
@@ -1288,7 +1289,7 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
 
 
         elif backend == 'plotly':
-            fig = tools.make_subplots(rows=2, cols=1, subplot_titles=('f0 timestream', 'Qr timestream'),
+            fig = plotly.subplots.make_subplots(rows=2, cols=1, subplot_titles=('f0 timestream', 'Qr timestream'),
                                       shared_xaxes=True)
             fig['layout']['yaxis1'].update(title='Frequency Shift [Hz]')
             fig['layout']['yaxis2'].update(title='Qr Shift [-]')

@@ -28,7 +28,7 @@ import glob
 #plotly stuff
 from plotly.graph_objs import Scatter, Layout
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly
 import colorlover as cl

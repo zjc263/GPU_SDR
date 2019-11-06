@@ -27,7 +27,7 @@ import warnings
 # plotly stuff
 from plotly.graph_objs import Scatter, Layout
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly
 import colorlover as cl
@@ -516,6 +516,7 @@ def plot_pfb(filename, decimation=None, low_pass=None, backend='matplotlib', out
 
         fig = go.Figure(data=data, layout=layout)
         final_filename = output_filename + ".html"
+        plotly.offline.plot(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     return final_filename

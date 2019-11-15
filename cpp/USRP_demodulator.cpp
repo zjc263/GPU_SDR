@@ -666,6 +666,7 @@ void RX_buffer_demodulator::close_pfb(){
 
 //clean up the pfb full spectrum
 void RX_buffer_demodulator::close_pfb_spec(){
+  print_debug("Close demodulator",0);
     cublasDestroy(handle);
     cufftDestroy(plan);
     cudaStreamDestroy(internal_stream);
@@ -678,6 +679,7 @@ void RX_buffer_demodulator::close_pfb_spec(){
         delete(pfb_decim_helper);
         cudaFree(decim_output);
     }
+    print_debug("Close demodulator",1);
 }
 
 //clean up the chirp demod allocation

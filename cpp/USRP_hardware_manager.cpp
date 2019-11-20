@@ -1479,9 +1479,7 @@ void hardware_manager::single_rx_thread(
     stream_cmd.num_samps = current_settings->buffer_len;
     stream_cmd.time_spec = uhd::time_spec_t(1.0+current_settings->delay);
     timeout = 1.0+current_settings->delay;
-    //stream_cmd.stream_mode = uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS ;
-		//force streamer to this mode to avoid interruptions
-		stream_cmd.stream_mode = uhd::stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_MORE;
+
     rx_stream->issue_stream_cmd(stream_cmd);
 
 		// Just setting the stop command for later

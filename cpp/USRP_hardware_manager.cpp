@@ -2,6 +2,55 @@
 
 auto start = std::chrono::system_clock::now();
 
+
+//! @brief Reinitialize hardware pointers.
+//! this is an attempt to fix the 83 measures crash of the UHD library (bug still present in uhd 3.15)
+void hardware_manager::reset_usrp_host(){
+	//if(not sw_loop){
+	BOOST_LOG_TRIVIAL(debug) << "Resetting USRP host descriptor";
+	std::cout << "Resetting USRP host descriptor... ";
+
+	/* // There are no registers to read!!!
+	std::vector<std::string> registers;
+	registers = main_usrp->enumerate_registers();
+	uint reg_size = registers.size();
+	print_debug("number of registers:", reg_size);
+	for(uint j = 0; j < reg_size; j++){
+		std::cout<< registers[j] <<std::endl;
+	}
+	*/
+
+	/*
+	//delete the usrp object
+	//delete main_usrp; // It's a shared pointer. Sad.
+
+	//make it again
+	dev_addrs = uhd::device::find(hint);
+	while(dev_addrs.size()< this_usrp_number + 1){
+			dev_addrs = uhd::device::find(hint);
+			std::cout<<"."<<std::flush;
+			usleep(1e6);
+	}
+	device_arguments = default_arguments;
+	if(device_arguments.compare(default_arguments)==0){
+		uhd::device_addr_t args(device_arguments);
+		main_usrp = uhd::usrp::multi_usrp::make(args);
+	}else{
+		main_usrp = uhd::usrp::multi_usrp::make(dev_addrs[this_usrp_number]);
+	}
+	std::cout << "done!" <<std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "USRP host descriptor reset complete";
+	}else{
+		std::cout << "Skipping hardware host description reset." <<std::endl;
+		BOOST_LOG_TRIVIAL(debug) << "Skipping hardware host description reset.";
+	}
+	*/
+
+
+	std::cout << "done!" <<std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "USRP host descriptor reset complete";
+}
+
 //! @brief Initializer of the class can be used to select which usrp is controlled by the class
 //! Default call suppose only one USRP is connected
 //! @todo TODO: the multi_usrp object has to be passed as argument to this initializer. Multiple usrp's will crash as the obj is not ts
@@ -231,7 +280,7 @@ void hardware_manager::pprint_board_prop(){
 //! It's really a wrappe raround the private methods apply(), set_streams() and check_tuning() of this class.
 //! @todo TODO catch exceptions and return a boolean
 bool hardware_manager::preset_usrp(usrp_param* requested_config){
-
+	reset_usrp_host(); // Did't work as expected
 	if(not sw_loop){
 		BOOST_LOG_TRIVIAL(info) << "Presetting USRP";
 	}else{
@@ -239,7 +288,9 @@ bool hardware_manager::preset_usrp(usrp_param* requested_config){
 	}
 
     apply(requested_config);
+
     set_streams();
+
     if(not sw_loop){
         check_tuning();
     }
@@ -708,61 +759,66 @@ void hardware_manager::set_streams(){
 	//front_end_code0 was used in a previous version. Kept for showing the scheme
 
     if(config.A_TXRX.mode == RX){
-		BOOST_LOG_TRIVIAL(info) << "Config A_TXRX as RX";
-		uhd::stream_args_t stream_args("fc32");
-        front_end_code0 = 'A';
-        channel_num[0] = 0;
-        stream_args.channels = channel_num;
-        if(not sw_loop)A_rx_stream = main_usrp->get_rx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+
+			BOOST_LOG_TRIVIAL(info) << "Config A_TXRX as RX";
+			uhd::stream_args_t stream_args("fc32");
+      front_end_code0 = 'A';
+      channel_num[0] = 0;
+      stream_args.channels = channel_num;
+      if((not sw_loop) and (A_rx_stream==nullptr))A_rx_stream = main_usrp->get_rx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
+
     }else if(config.A_RX2.mode == RX){
-		BOOST_LOG_TRIVIAL(info) << "Config A_RX2 as RX";
-		uhd::stream_args_t stream_args("fc32");
-        front_end_code0 = 'B';
-        channel_num[0] = 0;
-        stream_args.channels = channel_num;
-        if(not sw_loop)A_rx_stream = main_usrp->get_rx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+
+			BOOST_LOG_TRIVIAL(info) << "Config A_RX2 as RX";
+			uhd::stream_args_t stream_args("fc32");
+      front_end_code0 = 'B';
+      channel_num[0] = 0;
+      stream_args.channels = channel_num;
+      if((not sw_loop) and (A_rx_stream==nullptr))A_rx_stream = main_usrp->get_rx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
     }
 
     if(config.B_TXRX.mode == RX){
-        BOOST_LOG_TRIVIAL(info) << "Config B_TXRX as RX";
-		uhd::stream_args_t stream_args("fc32");
 
-        front_end_code0 = 'C';
-        channel_num[0] = 1;
-        stream_args.channels = channel_num;
-        if(not sw_loop)B_rx_stream = main_usrp->get_rx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+      BOOST_LOG_TRIVIAL(info) << "Config B_TXRX as RX";
+			uhd::stream_args_t stream_args("fc32");
+      front_end_code0 = 'C';
+      channel_num[0] = 1;
+      stream_args.channels = channel_num;
+      if((not sw_loop) and (B_tx_stream==nullptr))B_rx_stream = main_usrp->get_rx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
 
     }else if(config.B_RX2.mode == RX){
-        BOOST_LOG_TRIVIAL(info) << "Config B_RX2 as RX";
-		uhd::stream_args_t stream_args("fc32");
-        front_end_code0 = 'D';
-        channel_num[0] = 1;
-        stream_args.channels = channel_num;
-        if(not sw_loop)B_rx_stream = main_usrp->get_rx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+
+      BOOST_LOG_TRIVIAL(info) << "Config B_RX2 as RX";
+			uhd::stream_args_t stream_args("fc32");
+      front_end_code0 = 'D';
+      channel_num[0] = 1;
+      stream_args.channels = channel_num;
+      if((not sw_loop) and (B_tx_stream==nullptr))B_rx_stream = main_usrp->get_rx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
     }
 
-
     if(config.A_RX2.mode == TX or config.A_TXRX.mode == TX){
-        BOOST_LOG_TRIVIAL(info) << "Config A_TXRX as TX";
-		uhd::stream_args_t stream_args("fc32");
-        channel_num[0] = 0;
-        stream_args.channels = channel_num;
-        if(not sw_loop)A_tx_stream = main_usrp->get_tx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+
+      BOOST_LOG_TRIVIAL(info) << "Config A_TXRX as TX";
+			uhd::stream_args_t stream_args("fc32");
+	    channel_num[0] = 0;
+	    stream_args.channels = channel_num;
+	    if((not sw_loop) and (A_tx_stream==nullptr))A_tx_stream = main_usrp->get_tx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
     }
 
     if(config.B_RX2.mode == TX or config.B_TXRX.mode == TX){
-		BOOST_LOG_TRIVIAL(info) << "Config B_TXRX as TX";
-		uhd::stream_args_t stream_args("fc32");
-        //declare unit to be used
-        channel_num[0] = 1;
-        stream_args.channels = channel_num;
-        if(not sw_loop)B_tx_stream = main_usrp->get_tx_stream(stream_args);
-		BOOST_LOG_TRIVIAL(info) << "Config done";
+
+			BOOST_LOG_TRIVIAL(info) << "Config B_TXRX as TX";
+			uhd::stream_args_t stream_args("fc32");
+	    //declare unit to be used
+	    channel_num[0] = 1;
+	    stream_args.channels = channel_num;
+	     if((not sw_loop) and (B_tx_stream==nullptr))B_tx_stream = main_usrp->get_tx_stream(stream_args);
+			BOOST_LOG_TRIVIAL(info) << "Config done";
     }
 
 	BOOST_LOG_TRIVIAL(info) << "Stream presetting done";
@@ -771,20 +827,20 @@ void hardware_manager::set_streams(){
 void hardware_manager::clear_streams(){
 		BOOST_LOG_TRIVIAL(info) << "Resetting streams";
     if(A_rx_stream){
-        A_rx_stream.reset();
-        A_rx_stream = nullptr;
+        //A_rx_stream.reset();
+        //A_rx_stream = nullptr;
     }
     if(A_tx_stream){
-        A_tx_stream.reset();
-        A_tx_stream = nullptr;
+      //  A_tx_stream.reset();
+        //A_tx_stream = nullptr;
     }
     if(B_rx_stream){
-        B_rx_stream.reset();
-        B_rx_stream = nullptr;
+        //B_rx_stream.reset();
+        //B_rx_stream = nullptr;
     }
     if(B_tx_stream){
-        B_tx_stream.reset();
-        B_tx_stream = nullptr;
+        //B_tx_stream.reset();
+        //B_tx_stream = nullptr;
     }
 		BOOST_LOG_TRIVIAL(info) << "Streams reset";
 }
@@ -1423,7 +1479,7 @@ void hardware_manager::single_rx_thread(
     stream_cmd.num_samps = current_settings->buffer_len;
     stream_cmd.time_spec = uhd::time_spec_t(1.0+current_settings->delay);
     timeout = 1.0+current_settings->delay;
-    stream_cmd.stream_mode = uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS ;
+
     rx_stream->issue_stream_cmd(stream_cmd);
 
 		// Just setting the stop command for later

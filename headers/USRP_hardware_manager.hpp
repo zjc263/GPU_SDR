@@ -116,6 +116,10 @@ class hardware_manager{
         //! @brief make a good looking print of the doughercards properties in the server terminal window.
         void pprint_board_prop();
 
+        //! @brief Reinitialize hardware pointers.
+        //! this is an attempt to fix the 83 measures crash of the UHD library (bug still present in uhd 3.15)
+        void reset_usrp_host();
+
     private:
 
         //! @ brief Fill the board properties struct.

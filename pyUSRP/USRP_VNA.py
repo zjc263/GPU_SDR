@@ -27,7 +27,7 @@ import datetime
 #plotly stuff
 from plotly.graph_objs import Scatter, Layout
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly
 import colorlover as cl
@@ -974,7 +974,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
 
         if verbose: print_debug("Using plotly backend")
 
-        fig = tools.make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.003)
+        fig = plotly.subplots.make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.003)
 
         fig['layout'].update(title=title)
         fig['layout'].update(autosize=True)
@@ -1089,6 +1089,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
                 fig.append_trace(traceP_fit, 2, 1)
 
         final_filename = output_filename + ".html"
+        plotly.offline.plot(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     else:

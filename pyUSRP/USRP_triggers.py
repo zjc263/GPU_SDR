@@ -7,6 +7,10 @@
 from .USRP_low_level import *
 import numpy as np
 from scipy import signal
+from USRP_fitting import get_fit_param
+from USRP_noise import calculate_frequency_timestream
+import h5py
+import time
 class trigger_template(object):
     '''
     Example class for developing a trigger.
@@ -22,11 +26,6 @@ class trigger_template(object):
             err_msg = "Trigger_control in the trigger class can only have MANUAL or AUTO value, not \'%s\'"%str(self.trigger_control)
             print_error(err_msg)
             raise ValueError(err_msg)
-
-        #------------------------------
-        self.stored_data = np.empty([0,])
-        self.time_index = 0
-        self.rate = rate
 
     def dataset_init(self, antenna_group):
         '''
@@ -61,55 +60,7 @@ class trigger_template(object):
         Note: the order of data at this stage follows the example ch0_t0, ch1_t0, ch0_t1, ch1_t1, ch0_t2, ch1_t2...
         '''
 
-        n_chan = metadata['channels']
-        self.time_index += metadata['length']/n_chan
-        self.stored_data = np.concatenate((self.stored_data,data)) ##accumulating data
-        if len(self.stored_data) >= 10*self.rate: ##if data is long enough
-            n_samples = len(self.stored_data) / n_chan ##number of samples per channel
-            reshaped_data = np.reshape(self.stored_data, (n_samples, n_chan)).T
-            srate = self.rate
-            hits = np.zeros(n_samples, dtype=bool) ##initially all false.
-            for x in range(0, n_chan):
-                current = reshaped_data[x]
-                med = np.median(current)
-                stddev = np.std(current)
-                lo = med - 10*stddev
-                hi = med + 10*stddev
-                mask = np.logical_or(current<lo, current>hi)
-                hits = np.logical_or(hits, mask)
-            ##now hits has the indices of all the glitches across all the chs.
-            hit_indices = np.nonzero(hits)[0]
-            indices_diffs = np.ediff1d(hit_indices)
-            count = 0
-            for y in range(0, len(indices_diffs)):
-                if indices_diffs[y] < (0.001*srate): ##if points are less than .001 sec apart
-                    hit_indices = np.delete(hit_indices, count+1)
-                else:
-                    count += 1
-            ##now hit_indices only contains one marker per glitch.
-            if len(hit_indices) != 0: ##if this detects a glitch
-                num = int(srate * 0.002) ##half of number of points saved. (0.004 sec range total saved)
-                res = np.empty([n_chan, 0])
-                total_time = np.arange(n_samples)/srate
-                times = np.array([])
-                for z in range(0, len(hit_indices)): ##find data around glitches
-                    i = hit_indices[z]
-                    chopped = reshaped_data[0:n_chan, (i-num):(i+num)]
-                    res = np.concatenate((res.T, chopped.T)).T
-                    times = np.concatenate((times, total_time[(i-num):(i+num)]))
-                res = np.reshape(res.T, (res.size,))
-                metadata['length'] = len(res)
-                self.stored_data = np.array([])
-                #self.write_trigger(self.time_index) this is a bug
-                return res, metadata#, times ####added times output for testing purposes
-            else: ##if no glitches detected
-                self.stored_data = np.array([])
-                metadata['length'] = 0
-                return np.array([]), metadata
-                ###return piece of timestream
-        else: ##if data is not long enough.
-            metadata['length'] = 0
-            return np.array([]), metadata
+        return data, metadata
 
 
 class deriv_test(trigger_template):
@@ -150,3 +101,148 @@ class deriv_test(trigger_template):
         else:
             metadata['length'] = 0
             return [[],],metadata
+
+
+
+class amplitude_trigger(object):
+    '''
+    Triggers by an amplitude-based threshold. The incoming data is first accumulated
+    into a 10 second packet. The data then converted to frequency and Qr data based
+    on the fit parameters from the VNA. Frequency is stored in the real component and Qr
+    is stored in the imaginary component. Thresholds are set via the median of the frequency timestream data
+    +/- a certain number of standard deviations of the frequency timestream data. If any point of the
+    frequency data on the list of triggering channels lies above these thresholds, all channels are recorded
+    in the 8 ms around that glitch. 2 random 8 ms noise samples are also recorded at the beginning of
+    the packet.
+    '''
+
+    def __init__(self, sample_rate, freq, tones, vna, threshold, channels):
+        self.trigger_control = "AUTO" # OR MANUAL
+        if (self.trigger_control != "AUTO") and (self.trigger_control != "MANUAL"):
+            err_msg = "Trigger_control in the trigger class can only have MANUAL or AUTO value, not \'%s\'"%str(self.trigger_control)
+            print_error(err_msg)
+            raise ValueError(err_msg)
+
+
+        self.stored_data = []
+        self.time_index = 0
+        self.rate = sample_rate
+        self.freq = freq
+        self.tones = tones
+        self.vna = vna
+        self.threshold = threshold #number of standard deviations above the mean
+        self.bounds = []
+        ##every 10 seconds, a new pair of high and low thresholds for each channel is added.
+        self.nglitch = []
+        self.glitch_indices = [] ##glitch times (by packet.)
+        self.samples_per_packet = []
+
+        vna_file = h5py.File(self.vna, 'r')
+        calibration = vna_file['VNA_0'].attrs['calibration']
+        chs = len(vna_file['Resonators'].attrs['tones_init'])
+
+        self.cal = calibration
+        self.index = 0
+
+        if channels is not None:
+            self.channels = channels
+            print "The selected channels for triggering are:", channels
+        else:
+            print "All", chs, "channels are being used for triggering."
+            self.channels = np.arange(chs)
+
+    def dataset_init(self, antenna_group):
+        self.trigger_group = antenna_group['trigger']
+        return
+
+    def write_trigger(self, data):
+
+        current_len_trigger = len(self.trigger)
+        self.trigger.resize(current_len_trigger+1,0)
+        self.trigger[current_len_trigger] = data
+
+
+    def trigger(self, data, metadata):
+        n_chan = metadata['channels']
+        self.time_index += metadata['length']/n_chan
+        self.stored_data.extend(data)
+        if self.time_index >= 10*self.rate: ##data accumulated into 10 second packet
+            self.stored_data = np.array(self.stored_data)
+            t0 = time.time()
+            n_samples = len(self.stored_data)/n_chan ##The number of samples per channel in the packet
+            self.samples_per_packet.append(n_samples)
+            reshaped_data = np.reshape(self.stored_data, (n_samples, n_chan)).T
+            srate = self.rate
+
+            ###frequency conversion:
+            ti = time.time()
+            fit_params = get_fit_param(self.vna)
+            n_reso = len(fit_params)
+            frequencies = self.freq + self.tones
+
+            for n in range(0, n_reso):
+                noise_data = reshaped_data[n]
+                p = fit_params[n]
+                ##following the same order specified in calculate_frequency_timestreams
+                params = (p['f0'], p['A'], p['phi'], p['D'], p['Qi'], p['Qr'], p['Qe'].real, p['Qe'].imag, p['a'])
+                current_freq = frequencies[n]
+                x, Qr = calculate_frequency_timestream(current_freq, noise_data*self.cal, params)
+                reshaped_data[n] = x + 1j*Qr
+                ##frequency is in real, Qr is in imaginary.
+            tf = time.time()
+            print "Time to frequency convert is", tf-ti
+            ##finding the indices of the glitches:
+            hits = np.zeros(n_samples, dtype=bool) ##initially all false.
+            bounds = []
+            for x in range(0, len(self.channels)):
+                ch = self.channels[x]
+                current = reshaped_data[ch].real
+                med = np.median(current)
+                stddev = np.std(current)
+                lo = med - self.threshold*stddev
+                hi = med + self.threshold*stddev
+                bounds.append([lo, hi])
+                mask = np.logical_or(current<lo, current>hi)
+                hits = np.logical_or(hits, mask)
+            ##hits now contains the indices of all the glitches across the triggering channels
+            self.bounds.append(bounds)
+            hit_indices = np.nonzero(hits)[0]
+            indices_diffs = np.ediff1d(hit_indices)
+            count = 0
+            for y in range(0, len(indices_diffs)):
+                if indices_diffs[y] < (0.001*srate): ##if points are less than .001 sec apart, it is the same glitch.
+                    hit_indices = np.delete(hit_indices, count+1)
+                else:
+                    count += 1
+            ##now hit_indices only contains one marker per glitch.
+            n_glitch = len(hit_indices)
+            print n_glitch, "glitches detected."
+            ##adding random noise info:
+            num = int(srate*0.002) ##2 ms worth of points.
+            rand1 = np.random.randint(num, high=n_samples-3*num)
+            rand2 = np.random.randint(num, high=n_samples-3*num)
+            hit_indices = np.concatenate((np.array([rand1, rand2]), hit_indices))
+            res = np.empty([n_chan, 0])
+            glitch_index = []
+            for z in range(0, len(hit_indices)): ##find data around glitches
+                i = hit_indices[z]
+                if i>=num and i<n_samples-3*num:
+                    chopped = reshaped_data[0:n_chan, (i-num):(i+3*num)]
+                    res = np.concatenate((res.T, chopped.T)).T
+                    glitch_index.append(i+self.index)
+                else:
+                    print "Glitch index", i, "not in range."
+                    n_glitch = n_glitch - 1
+            self.nglitch.append(n_glitch)
+            self.glitch_indices.extend(glitch_index)
+            res = np.reshape(res.T, (res.size,))
+            metadata['length'] = len(res)
+            self.stored_data = []
+            self.time_index = 0
+            self.index += n_samples
+            t1 = time.time()
+            print "Time to run is", t1-t0
+            return res, metadata
+        else: ##if data is not long enough.
+            metadata['length'] = 0
+            return np.array([]), metadata

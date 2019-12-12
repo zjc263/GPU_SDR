@@ -27,7 +27,7 @@ import datetime
 # plotly stuff
 from plotly.graph_objs import Scatter, Layout
 from plotly import tools
-import plotly.plotly as py
+#import plotly.plotly as py
 import plotly.graph_objs as go
 import plotly
 import colorlover as cl
@@ -60,7 +60,15 @@ def get_color(N):
     N = int(N)
     return COLORS[N % len(COLORS)]
 
+def style_plotly_figure(fig):
+    '''
+    Cahenge the style of a plotly figure.
 
+    Arguments:
+        - fig the plotly figure object
+    '''
+    fig['layout'].update(paper_bgcolor='rgba(0,0,0,0)')
+    fig['layout'].update(plot_bgcolor='rgba(0,0,0,0)')
 
 def plot_raw_data(filenames, decimation=None, displayed_samples=None, low_pass=None, backend='matplotlib', output_filename=None,
                   channel_list=None, mode='IQ', start_time=None, end_time=None, auto_open=True, **kwargs):
@@ -134,14 +142,14 @@ def plot_raw_data(filenames, decimation=None, displayed_samples=None, low_pass=N
 
     elif backend == 'plotly':
         if mode == 'IQ':
-            fig = tools.make_subplots(rows=2, cols=1, subplot_titles=('I timestream', 'Q timestream'),
+            fig = plotly.subplots.make_subplots(rows=2, cols=1, subplot_titles=('I timestream', 'Q timestream'),
                                       shared_xaxes=True)
             fig['layout']['yaxis1'].update(title='I [fp ADC]')
             fig['layout']['yaxis2'].update(title='Q [fp ADC]')
             fig['layout']['xaxis'].update(exponentformat='SI')
             #fig['layout']['xaxis2'].update(exponentformat='SI')
         elif mode == 'PM':
-            fig = tools.make_subplots(rows=2, cols=1, subplot_titles=('Magnitude', 'Phase'), shared_xaxes=True)
+            fig = plotly.subplots.make_subplots(rows=2, cols=1, subplot_titles=('Magnitude', 'Phase'), shared_xaxes=True)
             fig['layout']['yaxis1'].update(title='Magnitude [abs(ADC)]')
             fig['layout']['yaxis2'].update(title='Phase [Rad]')
 
@@ -321,6 +329,7 @@ def plot_raw_data(filenames, decimation=None, displayed_samples=None, low_pass=N
     if backend == 'plotly':
         final_filename = output_filename + ".html"
         fig['layout'].update(title=plot_title + "<br>" + rate_tag)
+        plotly.offline.plot(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     return final_filename

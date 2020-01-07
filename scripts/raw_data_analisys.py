@@ -12,7 +12,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     Z = Z[int(1e6):int(3e6)]
 
     #plot a psd
-    print "Reportd rate is %d Msps"%(info['rate']/1e6)
+    print("Reportd rate is %d Msps"%(info['rate']/1e6))
     psd_img, ax = pl.subplots( nrows=1, ncols=1 )
     psd_img.set_size_inches(18.5, 10.5)
     ax.psd(Z, Fs = info['rate'], NFFT = int(1e6), detrend = 'linear', scale_by_freq = True)

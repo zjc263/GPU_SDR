@@ -8,7 +8,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 
@@ -18,7 +18,7 @@ def run(rate,freq_a,freq_b, f0a,f1a,f0b,f1b, lapse, points, gain_a, gain_b):
     try:
         if u.LINE_DELAY[str(int(rate/1e6))]: pass
     except KeyError:
-        print "Cannot find line delay. Measuring line delay before VNA:"
+        print("Cannot find line delay. Measuring line delay before VNA:")
 
         front_end = 'A'
 

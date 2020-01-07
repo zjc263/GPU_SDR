@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import Queue
-from Queue import Empty
+import queue
+from queue import Empty
 from threading import Thread,Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -43,11 +43,11 @@ import matplotlib.patches as mpatches
 import progressbar
 
 #import submodules
-from USRP_low_level import *
-from USRP_connections import *
-from USRP_plotting import *
-from USRP_files import *
-from USRP_data_analysis import *
+from .USRP_low_level import *
+from .USRP_connections import *
+from .USRP_plotting import *
+from .USRP_files import *
+from .USRP_data_analysis import *
 
 
 #: This variable contains total line delay at given frequencies.
@@ -328,7 +328,7 @@ def load_delay_from_file(filename):
     f = bound_open(filename)
 
     try:
-        rate = f["delay_info"].attrs.keys()[0]
+        rate = list(f["delay_info"].attrs.keys())[0]
         delay = f["delay_info"].attrs.get(rate)
     except ValueError:
         err_msg = "Cannot find any delay info in file "+str(filename)

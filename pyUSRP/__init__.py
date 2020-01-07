@@ -20,4 +20,4 @@ try:
 
 except ImportError as err:
     print("\033[1;31mERROR\033[0m: Import error from pyUSRP lib. Try running the install modules script.")
-    print err
+    print(err)

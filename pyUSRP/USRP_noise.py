@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import Queue
-from Queue import Empty
+import queue
+from queue import Empty
 from threading import Thread, Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -43,11 +43,11 @@ from matplotlib.ticker import EngFormatter
 import progressbar
 
 # import submodules
-from USRP_low_level import *
-from USRP_files import *
-from USRP_delay import *
-from USRP_fitting import get_fit_param
-from USRP_fitting import get_fit_data
+from .USRP_low_level import *
+from .USRP_files import *
+from .USRP_delay import *
+from .USRP_fitting import get_fit_param
+from .USRP_fitting import get_fit_data
 
 def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitudes_A = None, amplitudes_B = None, RF_A = None, RF_B = None, tx_gain_A = 0, tx_gain_B = 0, output_filename = None,
               Device = None, delay = None, pf_average = None, mode = "DIRECT" ,**kwargs):
@@ -105,7 +105,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
     else:
         output_filename = str(output_filename)
 
-    print("Begin dual noise acquisition, file %s ..."%output_filename)
+    print(("Begin dual noise acquisition, file %s ..."%output_filename))
 
     if measure_t <= 0:
         print_error("Cannot execute a noise measure with "+str(measure_t)+"s duration.")
@@ -350,6 +350,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
         noise_command.set(RX_frontend_B, "decim", 0)
 
     elif mode == "DIRECT":
+        number_of_samples = rate * measure_t
         expected_samples_B = number_of_samples/int(decimation)
         expected_samples_A = expected_samples_B
         err_msg = "Double noise measurement not implemented yet. It's not hard to port from the single noise measure anyway."
@@ -383,7 +384,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
     return output_filename
 
 def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
-              Device = None, delay = None, pf_average = 4, mode = "DIRECT", trigger = None, **kwargs):
+              Device = None, delay = None, pf_average = 4, mode = "DIRECT", trigger = None, repeat_measure = False, **kwargs):
     '''
     Perform a noise acquisition using fixed tone technique.
 
@@ -401,6 +402,7 @@ def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF =
         - pf_average: pfb averaging factor. Default is 4 for PFB mode and 1 for DIRECT mode.
         - mode: noise acquisition kernels. DIRECT uses direct demodulation PFB use the polyphase filter bank technique. Note that PF average will refer to something slightly different in DIRECT mode (moving average ratio: 1 has no overlap).
         - trigger: class used for triggering. (See trigger section for more info). Default is no trigger.
+        - repeat_measure: when true, in case of an error, repeat the measure and delete the old file. Default is False.
         - kwargs:
             * verbose: additional prints. Default is False.
             * push_queue: queue for post writing samples.
@@ -442,7 +444,7 @@ def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF =
     else:
         output_filename = str(output_filename)
 
-    print("Begin noise acquisition, file %s ..."%output_filename)
+    print(("Begin noise acquisition, file %s ..."%output_filename))
 
     if measure_t <= 0:
         print_error("Cannot execute a noise measure with "+str(measure_t)+"s duration.")
@@ -530,7 +532,7 @@ def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF =
 
         print("Tone [MHz]\tPower [dBm]\tOffset [MHz]")
         for i in range(len(tones)):
-            print("%.1f\t%.2f\t%.3f" % ((RF + tones[i]) / 1e6, USRP_power + 20 * np.log10(amplitudes[i]), tones[i] / 1e6))
+            print(("%.1f\t%.2f\t%.3f" % ((RF + tones[i]) / 1e6, USRP_power + 20 * np.log10(amplitudes[i]), tones[i] / 1e6)))
 
         expected_samples = int(number_of_samples/final_fft_bins)
         noise_command = global_parameter()
@@ -624,30 +626,41 @@ def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF =
 
         noise_command.set(RX_frontend, "decim", decimation)
 
-    if noise_command.self_check():
-        if (verbose):
-            print_debug("Noise command successfully checked")
-            noise_command.pprint()
+    measure_complete = False
 
-        Async_send(noise_command.to_json())
+    while not measure_complete:
+        if noise_command.self_check():
+            if (verbose):
+                print_debug("Noise command successfully checked")
+                noise_command.pprint()
 
-    else:
-        err_msg = "Something went wrong in the noise acquisition command self_check()"
-        print_error(err_msg)
-        raise ValueError(err_msg)
+            Async_send(noise_command.to_json())
 
-    Packets_to_file(
-        parameters=noise_command,
-        timeout=None,
-        filename=output_filename,
-        dpc_expected=expected_samples,
-        meas_type="Noise",
-        push_queue = push_queue,
-        trigger = trigger,
-        **kwargs
-    )
+        else:
+            err_msg = "Something went wrong in the noise acquisition command self_check()"
+            print_error(err_msg)
+            raise ValueError(err_msg)
 
-    print_debug("Noise acquisition terminated.")
+        Packets_to_file(
+            parameters=noise_command,
+            timeout=None,
+            filename=output_filename,
+            dpc_expected=expected_samples,
+            meas_type="Noise",
+            push_queue = push_queue,
+            trigger = trigger,
+            **kwargs
+        )
+
+        print_debug("Noise acquisition terminated.")
+
+        if repeat_measure:
+            measure_complete = not check_errors(output_filename)
+            if not measure_complete:
+                print_warning("Errors found in the measure, deleting and repeating.")
+                os.remove(output_filename + ".h5")
+        else:
+            measure_complete = True
 
     return output_filename
 
@@ -715,7 +728,7 @@ def calculate_noise(filename, welch=None, dbc=False, rotate=True, usrp_number=0,
     * Default behaviour should be getting all the available RX antenna.
     '''
 
-    print("Calculating noise spectra for " + filename)
+    print(("Calculating noise spectra for " + filename))
 
     if verbose: print_debug("Reading attributes...")
 
@@ -869,9 +882,9 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
     if len(filenames)>1:
         print("Plotting noise from files:")
         for f in filenames:
-            print("\t%s"%f)
+            print(("\t%s"%f))
     else:
-        print("Plotting noise from file %s ..."%filenames[0])
+        print(("Plotting noise from file %s ..."%filenames[0]))
 
     add_info_labels = None
     try:
@@ -934,10 +947,10 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
             channel_list=channel_list
         )
         if max_frequency is not None:
+            index_cut = find_nearest(freq, max_frequency)
+            index_cut = np.min([len(freq),len(real[0]),index_cut])
+            freq = freq[:index_cut]
             for ii in range(len(imag)):
-                index_cut = find_nearest(freq, max_frequency)
-                index_cut = np.min([len(freq),len(real[ii]),index_cut])
-                freq = freq[:index_cut]
                 imag[ii] = imag[ii][:index_cut]
                 real[ii] = real[ii][:index_cut]
 
@@ -1107,6 +1120,23 @@ def calculate_frequency_timestream(noise_frequency, noise_data, fit_param):
 
     return f0*qrx_noise.imag/2., 1./qrx_noise.real
 
+def get_associated_VNA(NOISE_filename):
+    '''
+    NOT IMPLEMENTED
+    Retrive the VNA filename associated with the noise measurement if it has been previously linked with copy_resonator_group() fcn.
+
+        Arguments:
+            - NOISE_filename: name of the file.
+
+        Returns:
+            - name of the associated VNA file.
+
+        Raise:
+         - ValueError if the file ha no VNA association
+    '''
+    print_error("NOT IMPLEMENTED")
+    raise(ValueError("get_associated_VNA() NOT IMPLEMENTED"))
+
 
 def copy_resonator_group(VNA_filename, NOISE_filename):
     '''
@@ -1122,7 +1152,7 @@ def copy_resonator_group(VNA_filename, NOISE_filename):
     VNA_filename = format_filename(VNA_filename)
     resonator_grp_name = "Resonators"
     VNA_fv = h5py.File(VNA_filename, 'r')
-    if resonator_grp_name not in VNA_fv.keys():
+    if resonator_grp_name not in list(VNA_fv.keys()):
         err_msg = 'VNA file:%s does not contain the Resonators group'%VNA_filename
         print_error(err_msg)
         raise ValueError(err_msg)
@@ -1371,12 +1401,12 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
 
             #print_debug("plot_raw_data() found %d channels each long %d samples" % (len(samples), len(samples[0])))
             if channel_list == None:
-                ch_list = range(len(freq_ts))
+                ch_list = list(range(len(freq_ts)))
             else:
                 if max(channel_list) > len(freq_ts):
                     print_warning(
                         "Channel list selected in plot_raw_data() is bigger than avaliable channels. plotting all available channels")
-                    ch_list = range(len(freq_ts))
+                    ch_list = list(range(len(freq_ts)))
                 else:
                     ch_list = channel_list
 
@@ -1475,19 +1505,26 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
     :param kwargs:
         * auto_open: plotly backend specific, determines if after saving the plot the browser is called.
         * figsize: matplotlib specific argument: figure size of the plot or each plot.
+        * add_name: add a pefix to the name to specify a folder where to save files
 
     TODO: allow this function to interpret multiple VNA sources and multiple noise files.
 
     '''
+    global CURRENT_CALIBRATION
     def db(value):
         return 20*np.log10(value)
 
     noise_filename = format_filename(noise_filename)
-    print("Plotting diagnostic data from \'%s\'"%noise_filename)
+    print(("Plotting diagnostic data from \'%s\'"%noise_filename))
     resonator_grp_name = "Resonators"
     info = get_rx_info(noise_filename, ant=ant)
     tx_info = get_tx_info(noise_filename, ant=ant.split('_')[0]+"_TXRX")
     noise_file = h5py.File(noise_filename, 'r')
+
+    try:
+        addname = str(kwargs['add_name']) + "/"
+    except KeyError:
+        addname = ""
 
     try:
         fig_size = kwargs['figsize']
@@ -1517,7 +1554,7 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
 
     if fit_present:
         #check Resonators group existance
-        if resonator_grp_name not in noise_file.keys():
+        if resonator_grp_name not in list(noise_file.keys()):
             err_msg = "Cannot find the Resonator group in the file %s" % noise_filename
             print_error(err_msg)
             raise ValueError(err_msg)
@@ -1542,22 +1579,28 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
         fit_data = [{'frequency':frequency} for x in tx_info['freq']]
 
     #retrive calibrations
-    calibrations = [(1./tx_info['ampl'][i])*USRP_calibration/(10**((USRP_power + tx_info['gain'])/20.)) for i in range(len(tx_info['ampl']))]
-
+    #calibrations = [(1./tx_info['ampl'][i])*CURRENT_CALIBRATION['tmp_calib']/(10**((USRP_power + tx_info['gain'])/20.)) for i in range(len(tx_info['ampl']))]
+    calibrations = [ (1./tx_info['ampl'][i])*CURRENT_CALIBRATION['tmp_calib']*(db2linear(USRP_power - tx_info['gain'])) for i in range(len(tx_info['ampl']))]
 
     #do averages
-    print_debug("Averaging...")
+    #print_debug("Averaging...")
+    initial_cutoff = 1000
     if points is None:
+        print_debug("Averaging noise data in one point, excluding firt %d points"%initial_cutoff)
         noise_points = np.asarray([
-            np.mean(dataset) for dataset in noise_file['raw_data0'][ant]['data']
+            np.mean(dataset[initial_cutoff:]) for dataset in noise_file['raw_data0'][ant]['data']
         ])
     else:
-        decimation = int(np.shape(noise_file['raw_data0'][ant]['data'])[1]/noise_points)
-        print_debug("Decimating %d"%decimation)
+
+        decimation = int((np.shape(noise_file['raw_data0'][ant]['data'])[1] - initial_cutoff)/points)
+        cutoff = int(0.1*np.shape(noise_file['raw_data0'][ant]['data'])[1]/decimation)
+        print_debug("Averaging noise data in %d points, excluding first %d points"%(points,initial_cutoff))
         noise_points = np.asarray([
-            signal.decimate(dataset,decimation,ftype="fir") for dataset in noise_file['raw_data0'][ant]['data']
+            signal.decimate(dataset[initial_cutoff:],decimation,ftype="fir")[cutoff:-cutoff] for dataset in noise_file['raw_data0'][ant]['data']
 
         ])
+        if len(noise_points[0]) < 1:
+            print_error("Diagnostic plot will be wrong: residual number of points < 0 afret cutoffs")
 
     title = "Diagnostic plot: overlaying averaged noise acquisition and VNA traces"
     #plot
@@ -1565,14 +1608,13 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
     if backend == 'matplotlib':
         if fig_size is None:
             fig_size = (16, 10)
-        diagnostic_folder_name = "Diagnostic_"+noise_filename.split(".")[0]
+        diagnostic_folder_name = "Diagnostic_"+(noise_filename.split("/")[-1]).split(".")[0]
         try:
-            os.mkdir(diagnostic_folder_name)
-        except OSError:
-            pass
+            os.mkdir(addname+diagnostic_folder_name)
+            print_debug("Creating directory "+ diagnostic_folder_name +"...")
+        except OSError as err:
+            print_debug("Skippig directory creation: " + err.strerror)
 
-
-        os.chdir(diagnostic_folder_name)
         for i in range(len(fit_data)):
 
             current_color = get_color(i)
@@ -1592,7 +1634,7 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
                 ax.set_aspect('equal','datalim')
                 ax.legend()
                 ax.grid()
-                fig.savefig("diagnostic_channel_%d_IQ.png"%i)
+                fig.savefig(addname+diagnostic_folder_name+"/"+"diagnostic_channel_%d_IQ.png"%i)
                 pl.close(fig)
             else:
                 label = "Channel %.2f MHz"%(tx_info['freq'][i] + tx_info['rf'])
@@ -1604,11 +1646,11 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
             ax.plot(fit_data[i]["frequency"],db(np.abs(original_data)),  label = "VNA data",  color = current_color, zorder=1)
             if points is not None:
                 freq_data = [tx_info["rf"] + tx_info["freq"][i] for tt in range(len(noise_points[i]))]
-                magdata = db(np.abs(noise_points[i]) *calibrations[i])
-                diff_mag = np.mean(magdata) - vrms2dbm(np.abs(original_data)[find_nearest(fit_data[i]["frequency"], freq_data[0])])
+                magdata = linear2db(np.abs(noise_points[i]) *calibrations[i])
+                diff_mag = np.mean(magdata) - linear2db(np.abs(original_data)[find_nearest(fit_data[i]["frequency"], freq_data[0])])
             else:
                 freq_data = [tx_info["rf"] + tx_info["freq"][i]]
-                magdata = [db(np.abs(noise_points[i]) * calibrations[i])]
+                magdata = [linear2db(np.abs(noise_points[i]) * calibrations[i])]
                 diff_mag = magdata[0] - db(np.abs(original_data)[find_nearest(fit_data[i]["frequency"], freq_data[0])])
             if not fit_present:
                 ax.scatter(freq_data, magdata , label = "Averaged noise data", color = 'r', zorder=2)
@@ -1619,7 +1661,7 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
             fig.suptitle(label+"\n average discrepancy: %.2fdB"%diff_mag)
             ax.set_xlabel('Frequency [Hz]')
             ax.set_ylabel('Magnitude [dB]')
-            fig.savefig("diagnostic_channel_%d_mag.png"%i)
+            fig.savefig(addname+diagnostic_folder_name+"/"+"diagnostic_channel_%d_mag.png"%i)
             pl.close(fig)
 
             #plot phase
@@ -1640,22 +1682,80 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
             ax.grid()
             ax.set_xlabel('Frequency [Hz]')
             ax.set_ylabel('Phase [Rad]')
-            fig.savefig("diagnostic_channel_%d_pha.png"%i)
+            fig.savefig(addname+diagnostic_folder_name+"/"+"diagnostic_channel_%d_pha.png"%i)
             pl.close(fig)
-
-        os.chdir("..")
 
 
 
 
     elif backend == 'plotly':
-        pass
+        fig = plotly.subplots.make_subplots(
+            rows=3, cols=3,
+            specs=[
+                [
+                {'rowspan': 2, 'colspan': 2 },
+                None,
+                {'rowspan': 3}
+                ],
+                [None, None,None],
+                [{'colspan': 2}, None,None],
+                ],
+            subplot_titles=('IQ circle', 'Phase','Magnitude'),
+            print_grid=False
+        )
+
+        for i in range(len(fit_data)):
+            c = get_color(i)
+
+            #USRP X300 SPECIFIC
+            power = get_readout_power(noise_filename, i, front_end=ant.split("_")[0]+"_TXRX", usrp_number=0)
+
+            original_data = fit_data[i]['original']
+            freq_axis = fit_data[i]["frequency"] - fit_param[i]['f0']*1e6
+            label = "Channel: %.2f MHz<br>Power: %.2f dB"%(fit_param[i]['f0'],power)
+            trace_magnitude = go.Scatter(x=freq_axis, y=linear2db(np.abs(original_data)),name = label,legendgroup = str(i),line = dict(color = c))
+            trace_phase = go.Scatter(y=freq_axis, x=np.angle(original_data),legendgroup = str(i),line = dict(color = c),showlegend = False)
+            trace_IQ = go.Scatter(x=original_data.real, y=original_data.imag,legendgroup = str(i),line = dict(color = c),showlegend = False)
+            fig.append_trace(trace_magnitude,3,1)
+            fig.append_trace(trace_phase,1,3)
+            fig.append_trace(trace_IQ,1,1)
+
+            freq_data =np.array ([tx_info["rf"] + tx_info["freq"][i] - fit_param[i]['f0']*1e6 for tt in range(len(noise_points[i]))])
+            magdata = linear2db(np.abs(noise_points[i]) *calibrations[i])
+
+            if points is None:
+                trace_IQ_noise = go.Scatter(x=[noise_points[i].real  * calibrations[i]], y=[noise_points[i].imag  * calibrations[i]],mode='markers',legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+                trace_mag_noise = go.Scatter(x=[freq_data], y=[linear2db(np.abs(noise_points[i])  * calibrations[i])],mode='markers',legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+                trace_pha_noise = go.Scatter(y=[freq_data], x=[np.angle(noise_points[i])  * calibrations[i]],mode='markers',legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+
+            else:
+                trace_mag_noise = go.Scatter(x=freq_data, y=linear2db(np.abs(noise_points[i])  * calibrations[i]),mode='markers',legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+                trace_pha_noise = go.Scatter(y=freq_data, x=np.angle(noise_points[i]),mode='markers',legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+                trace_IQ_noise = go.Scatter(x=noise_points[i].real  * calibrations[i], y=noise_points[i].imag  * calibrations[i],mode='markers',opacity=0.7,legendgroup = str(i),marker = dict(color = c,line=dict(width=0.3,color='white')),showlegend = False)
+
+            fig.append_trace(trace_mag_noise,3,1)
+            fig.append_trace(trace_pha_noise,1,3)
+            fig.append_trace(trace_IQ_noise,1,1)
+        fig['layout']['xaxis3'].update(title='F0-relative Frequency [Hz]')
+        fig['layout']['yaxis2'].update(title='F0-relarive Frequency [Hz]')
+        fig['layout']['xaxis1'].update(title='Q [ADC]')
+        fig['layout']['yaxis3'].update(title='Magnitude [dB]')
+        fig['layout']['xaxis2'].update(title='Phase [Rad]')
+        fig['layout']['yaxis1'].update(title='I [ADC]',scaleanchor = "x",)
+        fig['layout'].update(title=("Diagnostic of %s.png"%(noise_filename.split("/")[-1])))
+        final_output_name = addname+"/"+"diagnostic_%s.png"%(noise_filename.split("/")[-1])+".html"
+        if kwargs['auto_open'] is not None:
+            auto_open = kwargs['auto_open']
+        else:
+            auto_open = True
+        plotly.offline.plot(fig, filename=final_output_name,auto_open=auto_open)
     else:
         err_msg = "%s backend not implemented in diagnostic function" % str(backend)
         print_error(err_msg)
         raise ValueError(err_msg)
 
-    return
+    # should be name of the file
+    return ""
 
 def calculate_NEF_spectra():
     #copied from calculate_spec

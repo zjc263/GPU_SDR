@@ -8,11 +8,11 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 def run(backend, files, decimation, low_pass, channel_list, displayed_samples):
-    u.plot_frequency_timestreams(files, decimation=decimation, low_pass=None, backend=backend, output_filename=None,
+    u.plot_frequency_timestreams(files, decimation=decimation, low_pass=20, backend=backend, output_filename=None,
               channel_list=ch_list, auto_open=True, displayed_samples = displayed_samples)
 
 

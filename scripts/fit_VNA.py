@@ -60,6 +60,6 @@ if __name__ == "__main__":
         for i in range(len(files)):
             p = int(args.N_peaks[i])
             peaks.append(p)
-            print "\'%s\' expected peaks: %d" % (files[i], p)
+            print("\'%s\' expected peaks: %d" % (files[i], p))
 
     run(files, args.backend, args.att, peaks,smoothing = args.smoothing, a_cutoff = args.ac, threshold = args.threshold, peak_width = args.peak_width, Mag_depth_cutoff = args.mag)

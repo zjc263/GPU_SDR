@@ -8,7 +8,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 

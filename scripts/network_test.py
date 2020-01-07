@@ -7,7 +7,7 @@ RF = 300e6
 tuning_mode = 'frac'
 lu.print_debug( "Async thread launched, waiting for connection..")
 if not lu.Connect():
-    print "cannot find server!"
+    print("cannot find server!")
     exit()
 lu.print_debug( "Connected, sending message...")
 

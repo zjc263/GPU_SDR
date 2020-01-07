@@ -8,12 +8,12 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 
 def run(backend, f, decim):
-    print f
+    print(f)
     u.VNA_timestream_analysis(filename = f, usrp_number = 0)
     u.VNA_timestream_plot(f, backend = backend, mode = 'magnitude')
 
@@ -34,6 +34,6 @@ if __name__ == "__main__":
     list_of_files = glob.glob("USRP_VNA*.h5")
     file_headers = [x.split(".")[0] for x in list_of_files]
     sorted_files = list(sorted(file_headers, key=lambda x: int(x.split("_")[-1])))
-    print sorted_files
+    print(sorted_files)
     latest_file = sorted_files[0]
     run(backend = args.backend, f = latest_file, decim = args.plot_decimate)

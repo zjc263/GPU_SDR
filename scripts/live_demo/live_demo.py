@@ -10,7 +10,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 import queue
@@ -19,7 +19,7 @@ import threading
 import Websockets
 def feeder():
     global data_queue, thread_active
-    print "Data feed started"
+    print("Data feed started")
     while(thread_active):
         try:
             meta_data, data = data_queue.get(timeout = 0.1)

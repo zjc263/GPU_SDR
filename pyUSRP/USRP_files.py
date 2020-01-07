@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import Queue
-from Queue import Empty
+import queue
+from queue import Empty
 from threading import Thread, Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -42,18 +42,24 @@ import matplotlib.patches as mpatches
 import progressbar
 
 # import submodules
-from USRP_low_level import *
+from .USRP_low_level import *
 
 def format_filename(filename):
     return os.path.splitext(filename)[0]+".h5"
 
-def bound_open(filename):
+def bound_open(filename, mode = 'r'):
     '''
     Return pointer to file. It's user responsability to call the close() method.
+
+    :param filename: Name of the file
+    :param mode: mode used to open the file, default is 'r'
+
+    :return HDF5 file pointer
+
     '''
     try:
         filename = format_filename(filename)
-        f = h5py.File(filename,'r')
+        f = h5py.File(filename,mode)
     except IOError as msg:
         print_error("Cannot open the specified file: "+str(msg))
         f = None
@@ -61,18 +67,18 @@ def bound_open(filename):
 
 def chk_multi_usrp(h5file):
     n = 0
-    for i in range(len(h5file.keys())):
-        if h5file.keys()[i][:8] == 'raw_data':
+    for i in range(len(list(h5file.keys()))):
+        if list(h5file.keys())[i][:8] == 'raw_data':
             n+=1
     return n
 
 def get_receivers(h5group):
     receivers = []
-    subs = h5group.keys()
+    subs = list(h5group.keys())
     for i in range( len(subs) ):
         mode = (h5group[subs[i]]).attrs.get("mode")
-        if mode == "RX":
-            receivers.append(str(h5group.keys()[i]))
+        if mode.decode('utf-8') == "RX":
+            receivers.append(str(list(h5group.keys())[i]))
     return receivers
 
 
@@ -155,9 +161,9 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
 
     if (not usrp_number) and chk_multi_usrp(f) != 1:
         this_warning = "Multiple usrp found in the file but no preference given to open file function. Assuming usrp " + str(
-            (f.keys()[0]).split("ata")[1])
+            (list(f.keys())[0]).split("ata")[1])
         print_warning(this_warning)
-        group_name = "raw_data" + str((f.keys()[0]).split("ata")[1])
+        group_name = "raw_data" + str((list(f.keys())[0]).split("ata")[1])
 
     if (not usrp_number) and chk_multi_usrp(f) == 1:
         group_name = "raw_data0"  # f.keys()[0]
@@ -205,7 +211,7 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
         # print_debug("Getting number of cannels from wave_type attribute shape: %d channel(s) found"%n_chan)
 
     if ch_list == None:
-        ch_list = range(n_chan)
+        ch_list = list(range(n_chan))
 
     if n_chan < max(ch_list):
         this_error = "Channel selected: " + str(
@@ -225,13 +231,13 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
         start_sample = int(start_sample)
 
     if last_sample == None:
-        last_sample = sys.maxint - 1
+        last_sample = sys.maxsize - 1
     else:
         last_sample = int(last_sample)
 
     if last_sample < 0 or last_sample < start_sample:
         print_warning("Last sample selected in open file function < 0 or < Start sample: setting it to maxint")
-        last_sample = sys.maxint
+        last_sample = sys.maxsize
 
     if (verbose):
         print_debug("Collecting samples...")
@@ -255,11 +261,11 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
 
         if verbose:
             widgets = [progressbar.Percentage(), progressbar.Bar()]
-            bar = progressbar.ProgressBar(widgets=widgets, max_value=len(sub_group.keys())).start()
+            bar = progressbar.ProgressBar(widgets=widgets, max_value=len(list(sub_group.keys()))).start()
             read = 0
 
         current_len = np.shape(sub_group["dataset_1"])[1]
-        N_dataset = len(sub_group.keys())
+        N_dataset = len(list(sub_group.keys()))
 
         print_warning(
             "Raw amples inside " + filename + " have not been rearranged: the read from file can be slow for big files due to dataset reading overhead")
@@ -296,7 +302,7 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
                     print_debug("decrease samples in progeressbar")
                 read += 1
         if errors > 0: print_warning("The measure opened contains %d erorrs!" % errors)
-        if (verbose): print "Done!"
+        if (verbose): print("Done!")
         f.close()
 
         if error_coord:
@@ -336,7 +342,37 @@ def openH5file(filename, ch_list=None, start_sample=None, last_sample=None, usrp
             return f,sub_group["data"]
 
 
+def check_errors(filename):
+    '''
+    Check for errors in the measure.
+    Argumers:
+        - filename: [string] the name of the file.
+    Returns:
+        True if the measure contains errors, false otherwise.
+    '''
+    try:
+        filename = format_filename(filename)
+    except:
+        print_error("cannot interpret filename while opening a H5 file")
+        return None
 
+    f = bound_open(filename)
+    result = False
+    result_msg = '\033[92m No errors\033[00m'
+    for usrp in f:
+        if usrp[0:3] == 'raw':
+            for gr in f[usrp]:
+                for sub in f[usrp][gr]:
+                    if sub[0:3] == 'err':
+                        try:
+                            if f[usrp][gr][sub].shape != (0, 0):
+                                result = True
+                                result_msg = '\033[91mError present\033[00m'
+                        except ValueError:
+                            pass
+
+    print_debug("Checking for errors in %s... "%filename + result_msg)
+    return result
 def get_noise(filename, usrp_number=0, front_end=None, channel_list=None):
     '''
     Get the noise spectra from a a pre-analyzed H5 file.
@@ -363,8 +399,8 @@ def get_noise(filename, usrp_number=0, front_end=None, channel_list=None):
     if front_end is not None:
         ant = front_end
     else:
-        if len(noise_group.keys()) > 0:
-            ant = noise_group.keys()[0]
+        if len(list(noise_group.keys())) > 0:
+            ant = list(noise_group.keys())[0]
         else:
             print_error("get_noise() cannot find valid front end names in noise group!")
             raise IndexError
@@ -379,7 +415,7 @@ def get_noise(filename, usrp_number=0, front_end=None, channel_list=None):
     info['n_chan'] = noise_subgroup.attrs.get("n_chan")
 
     if channel_list is None:
-        channel_list = range(info['n_chan'])
+        channel_list = list(range(info['n_chan']))
 
     info['tones'] = []
 
@@ -736,7 +772,7 @@ class global_parameter(object):
         '''
         x = self.to_json()
         parsed = json.loads(x)
-        print json.dumps(parsed, indent=4, sort_keys=True)
+        print(json.dumps(parsed, indent=4, sort_keys=True))
 
     def to_json(self):
         '''
@@ -791,7 +827,6 @@ class global_parameter(object):
             return None
 
         active_tx = []
-
         if self.parameters['A_TXRX']['mode'] == "TX":
             active_tx.append('A_TXRX')
         if self.parameters['B_TXRX']['mode'] == "TX":
@@ -800,7 +835,6 @@ class global_parameter(object):
             active_tx.append('A_RX2')
         if self.parameters['B_RX2']['mode'] == "TX":
             active_tx.append('B_RX2')
-
         return active_tx
 
     def retrive_prop_from_file(self, filename, usrp_number=None):
@@ -816,7 +850,7 @@ class global_parameter(object):
                 sub_prop['mode'] = "OFF"
                 return sub_prop
 
-            sub_prop['mode'] = sub_group.attrs.get('mode')
+            sub_prop['mode'] = sub_group.attrs.get('mode').decode('utf-8')
             missing_attr_warning('mode', sub_prop['mode'])
 
             sub_prop['rate'] = sub_group.attrs.get('rate')
@@ -849,7 +883,7 @@ class global_parameter(object):
             sub_prop['freq'] = sub_group.attrs.get('freq').tolist()
             missing_attr_warning('freq', sub_prop['freq'])
 
-            sub_prop['wave_type'] = sub_group.attrs.get('wave_type').tolist()
+            sub_prop['wave_type'] = [xx.decode('utf-8') for xx in sub_group.attrs.get('wave_type').tolist()]
             missing_attr_warning('wave_type', sub_prop['wave_type'])
 
             sub_prop['ampl'] = sub_group.attrs.get('ampl').tolist()
@@ -884,7 +918,7 @@ class global_parameter(object):
 
         if (not usrp_number) and chk_multi_usrp(f) != 1:
             this_warning = "Multiple usrp found in the file but no preference given to get prop function. Assuming usrp " + str(
-                (f.keys()[0]).split("ata")[1])
+                (list(f.keys())[0]).split("ata")[1])
             print_warning(this_warning)
             group_name = "raw_data0"  # +str((f.keys()[0]).split("ata")[1])
 
@@ -1054,6 +1088,30 @@ def is_VNA_analyzed(filename, usrp_number = 0):
     f.close()
     return ret
 
+def _set_VNA_calib(filename, new_calibration, usrp_number = 0):
+    print_error("DO NOT USE _set_VNA_calib()")
+    formatted_filename = format_filename(filename)
+    file_pointer = bound_open(formatted_filename, mode = 'r+')
+    calib_data = file_pointer['VNA_%d'%(usrp_number)].attrs.get('calibration')
+    calib_data[0] = float(new_calibration)
+    file_pointer['VNA_%d'%(usrp_number)].attrs.modify('calibration', calib_data)
+    file_pointer.close()
+
+def get_VNA_calib(filename, usrp_number = 0):
+    '''
+    Get the calibration attribute of a VNA file.
+    This function is ment to be used in the calibrarion script and will be substatially modified with it.
+
+    :param filename: the name of the HDF5 file containing the VNA data.
+    :param usrp_number: usrp server number.
+
+    :return calibration constant
+    '''
+    formatted_filename = format_filename(filename)
+    file_pointer = bound_open(formatted_filename)
+    calib_data = file_pointer['VNA_%d'%(usrp_number)].attrs.get('calibration')
+    file_pointer.close()
+    return calib_data[0]
 
 def get_VNA_data(filename, calibrated = True, usrp_number = 0):
     '''

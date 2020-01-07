@@ -17,7 +17,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print "Cannot find the pyUSRP package"
+        print("Cannot find the pyUSRP package")
 
 import argparse
 
@@ -28,7 +28,7 @@ def run(gain,iter,rate,freq,front_end, f0,f1, lapse, points, ntones, delay_durat
     except KeyError:
 
         if delay_over is None:
-            print "Cannot find line delay. Measuring line delay before VNA:"
+            print("Cannot find line delay. Measuring line delay before VNA:")
 
             filename = u.measure_line_delay(rate, freq, front_end, USRP_num=0, tx_gain=0, rx_gain=0, output_filename=None, compensate = True, duration = delay_duration)
 
@@ -86,14 +86,14 @@ if __name__ == "__main__":
     n_int = np.abs(args.start - args.to)/args.bandwidth + 1
     rf_0 = args.start + args.bandwidth
     u.Connect()
-    print "initializing delay..."
+    print("initializing delay...")
     blockPrint()
     try:
         if u.LINE_DELAY[str(int(args.rate))]: pass
     except KeyError:
 
 
-        print "Cannot find line delay. Measuring line delay before VNA:"
+        print("Cannot find line delay. Measuring line delay before VNA:")
 
         filename = u.measure_line_delay(
             args.rate*1e6, rf_0, args.frontend, USRP_num=0, tx_gain=0, rx_gain=0, output_filename=None, compensate = True, duration = 0.01)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             verbose=False
         )
         enablePrint()
-        print "iteration %d done" % i
+        print("iteration %d done" % i)
 
 
     u.Disconnect()

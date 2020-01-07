@@ -3,7 +3,7 @@
 
 //the initialization method requires an already initialized hardware manager class and an already initialized streaming queue (output of analysis)
 TXRX::TXRX(server_settings* settings, hardware_manager* init_hardware, bool diagnostic_init){
-    BOOST_LOG_TRIVIAL(info) << "Initializing thread link class";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_START:40; Initializing thread link class";
     //set the streamin/writing options
     tcp_streaming = settings->TCP_streaming;
     file_writing = settings->FILE_writing;
@@ -66,13 +66,13 @@ TXRX::TXRX(server_settings* settings, hardware_manager* init_hardware, bool diag
 
     rx_output_memory = nullptr;
 
-    BOOST_LOG_TRIVIAL(info) << "Thread link class initialized";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_END:40; Thread link class initialized";
 }
 
 //launches the setting functions for the required signals, antennas...
 void TXRX::set(usrp_param* global_param){
 
-    BOOST_LOG_TRIVIAL(info) << "Setting thread link class";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_START:41; Setting thread link class";
 
     std::vector<param*> modes(4);
     modes[0] = &global_param->A_TXRX;
@@ -230,14 +230,14 @@ void TXRX::set(usrp_param* global_param){
     std::cout<<"\033[1;32mSetting USRP hardware:\033[0m"<<std::endl;
     hardware->preset_usrp(global_param);
 
-    BOOST_LOG_TRIVIAL(info) << "Thread link class set";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_END:41; Thread link class set";
 
 }
 
 //start the threads
 void TXRX::start(usrp_param* global_param){
 
-	BOOST_LOG_TRIVIAL(info) << "Starting thread link";
+	BOOST_LOG_TRIVIAL(info) << "EVENT_START:42; Starting thread link";
 
     //counts the started threads
     int rx_threads = 0;
@@ -426,7 +426,7 @@ void TXRX::start(usrp_param* global_param){
         }
     }
 
-    BOOST_LOG_TRIVIAL(info) << "Thread link started";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_END:42; Thread link started";
 
 }
 //check if the streamer can take a new command and clean the threads for it.
@@ -532,7 +532,7 @@ bool TXRX::stop(bool force){
     //reset the thread counter
     if(status)thread_counter = 0;
 
-    BOOST_LOG_TRIVIAL(info) << "Operations concluded? "<<status;
+    //BOOST_LOG_TRIVIAL(info) << "EVENT:-2;Operations concluded? "<<status;
 
     return status;
 }
@@ -553,7 +553,7 @@ void TXRX::tx_single_link(
     thread_name << "tx single link  "<<front_end;
     set_this_thread_name(thread_name.str());
 
-	BOOST_LOG_TRIVIAL(info) << "Thread started";
+	BOOST_LOG_TRIVIAL(info) << "EVENT_START:44; Thread started";
 
     if(front_end!='A' and front_end!='B'){
         print_error("Frontend code not recognised in transmission link thread");
@@ -597,7 +597,7 @@ void TXRX::tx_single_link(
     //notify that the tx worker is off
     TX_status = false;
 
-    BOOST_LOG_TRIVIAL(info) << "Thread joining";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_END:44; Thread joining";
 
 }
 
@@ -616,7 +616,7 @@ void TXRX::rx_single_link(
     thread_name << "rx single link  "<<front_end;
     set_this_thread_name(thread_name.str());
 
-	BOOST_LOG_TRIVIAL(info) << "Thread started";
+	BOOST_LOG_TRIVIAL(info) << "EVENT_START:45; Thread started";
 
     if(front_end!='A' and front_end!='B'){
         print_error("Frontend code not recognised in receiver link thread");
@@ -698,5 +698,5 @@ void TXRX::rx_single_link(
     //notify that the rx worker is off
     RX_status = false;
 
-    BOOST_LOG_TRIVIAL(info) << "Thread joining";
+    BOOST_LOG_TRIVIAL(info) << "EVENT_START:45; Thread joining";
 }

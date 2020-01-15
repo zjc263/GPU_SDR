@@ -1744,11 +1744,13 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
         fig['layout']['xaxis2'].update(title='Phase [Rad]')
         fig['layout']['yaxis1'].update(title='I [ADC]',scaleanchor = "x",)
         fig['layout'].update(title=("Diagnostic of %s"%(noise_filename.split("/")[-1])))
-        final_output_name = addname+"/"+"diagnostic_%s"%((noise_filename.split("/")[-1])).split(".")[0]+".html"
-        if kwargs['auto_open'] is not None:
-            auto_open = kwargs['auto_open']
-        else:
+        final_output_name = addname+"diagnostic_%s"%((noise_filename.split("/")[-1])).split(".")[0]+".html"
+        try:
+            ll = kwargs['auto_open']
+            auto_open = ll
+        except KeyError:
             auto_open = True
+        print(final_output_name)
         plotly.offline.plot(fig, filename=final_output_name,auto_open=auto_open)
     else:
         err_msg = "%s backend not implemented in diagnostic function" % str(backend)

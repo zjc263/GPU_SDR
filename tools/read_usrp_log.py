@@ -207,7 +207,7 @@ if __name__ == "__main__":
 			with tag('section', klass = "content-area"):
 				with tag('div', klass = "table-area"):
 
-					with tag('table', klass = 'table table-hover'):
+					with tag('table', klass = 'table table-condensed'):
 						with tag('thead', klass="thead-dark"):
 							with tag('tr'):
 								with tag("th"):

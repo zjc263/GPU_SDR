@@ -211,7 +211,7 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
 
 def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None, amplitudes = None, tx_gain=0, decimation = None, pf_average = 4, output_filename = None, delay = None, **kwargs):
     '''
-    Full spectrum version of the Get_noise() function.
+    Full spectrum version of the get_tones_noise() function.
 
     :param tones: tones to put in output.
     :param channels: number of channels to read. The minimum will be determined by the number and spacing of tones.

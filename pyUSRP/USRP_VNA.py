@@ -840,13 +840,19 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
         - html only to return a html text instead of nothing in case of plotly backend.
         - title is a string containing the title.
         - att: external attenuation: changes the label in the plot from readout power to on-chip power if given.
-        - auto_open: for plotly backend. If True opens the plot in a browser. Default is True.
+        - auto_open: for plotly backend. If True opens the plot in a browser. Default is True.,
+        - subfolder: specify subforder where to save files. Folder is included in the filename and must exist. Default is no subfoder
 
    :return The filename of the file just created. if kwargs['html'] is True returns the html of the file instead.
 
     '''
 
     print("Plotting VNA(s)...")
+
+    try:
+        subfolder_name = str(kwargs['subfolder']) + "/"
+    except KeyError:
+        subfolder_name = ''
 
     try:
         html_output = kwargs['html']
@@ -914,7 +920,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
         output_filename = "VNA"
         if len(filenames)>1:
             output_filename+="_compare"
-        output_filename+="_"+get_timestamp()
+        output_filename+="_"+((filenames[0]).split("/")[-1]).split(".")[0]
 
     fit_label = ""
     #if(unwrap_phase):
@@ -944,7 +950,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
             else:
                 phase = np.angle(S21_axes[i])
 
-            label = filenames[i]
+            label = filenames[i].split("/")[-1]
             resolution = freq_axes[i][1] - freq_axes[i][0]
 
             if resolution < 1e3:
@@ -997,7 +1003,8 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
         ax[0].legend(bbox_to_anchor=(1.04, 1), loc="upper left")
         ax[0].grid()
         ax[1].grid()
-        final_filename = output_filename+".png"
+        final_filename = subfolder_name + output_filename+".png"
+        print_debug("Saving VNA plot as %s..."% final_filename)
         pl.savefig(final_filename, bbox_inches="tight")
 
     elif backend == "plotly":
@@ -1022,7 +1029,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
                 other_color = 'red'
             else:
                 other_color = 'black'
-            label = filenames[i]
+            label = filenames[i].split("/")[-1]
             resolution = freq_axes[i][1] - freq_axes[i][0]
 
             if resolution < 1e3:
@@ -1118,7 +1125,8 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
                 fig.append_trace(traceM_fit, 1, 1)
                 fig.append_trace(traceP_fit, 2, 1)
 
-        final_filename = output_filename + ".html"
+        final_filename =subfolder_name + output_filename + ".html"
+        print_debug("Saving VNA plot as %s..."% final_filename)
         style_plotly_figure(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 

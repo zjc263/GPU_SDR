@@ -110,7 +110,7 @@ Launching measures
 ------------------
 .. autosummary::
   USRP_VNA.Single_VNA
-  USRP_noise.Get_noise
+  USRP_noise.get_tones_noise
   USRP_delay.measure_line_delay
   USRP_full_spec.get_NODSP_tones
   USRP_noise.Get_full_spec

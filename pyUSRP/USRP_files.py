@@ -1237,3 +1237,60 @@ def is_VNA_dynamic_analyzed(filename, usrp_number = 0):
         ret = False
     f.close()
     return ret
+
+def get_NEF_spec(filename, usrp_number=0, front_end=None, channel_list=None):
+    '''
+    Get the frequency and quality factor noise spectra from a a pre-analyzed H5 file.
+
+    Argumers:
+        - filename: [string] the name of the file.
+        - usrp_number: the server number of the usrp device. default is 0.
+        - front_end: [string] name of the front end. default is extracted from data.
+        - channel_list: [listo of int] specifies the channels from which to get samples
+    Returns:
+        - Noise info, Frequency axis, real axis, imaginary axis
+
+    Note:
+        Noise info is a dictionary containing the following parameters [whelch, rate, tone].
+        The first four give information about the fft done to extract the noise; the last one is a list coherent with
+        channel list containing the acquisition frequency of each tone in Hz.
+    '''
+
+    if usrp_number is None:
+        usrp_number = 0
+
+    filename = format_filename(filename)
+    fv = h5py.File(filename, 'r')
+    noise_group = fv["Noise_QF" + str(int(usrp_number))]
+    if front_end is not None:
+        ant = front_end
+    else:
+        if len(list(noise_group.keys())) > 0:
+            ant = list(noise_group.keys())[0]
+        else:
+            print_error("get_NEF_spec() cannot find valid front end names in noise group!")
+            raise IndexError
+
+    noise_subgroup = noise_group[ant]
+
+    info = {}
+    info['welch'] = noise_subgroup.attrs.get("welch")
+    info['rate'] = noise_subgroup.attrs.get("rate")
+    info['n_chan'] = noise_subgroup.attrs.get("n_chan")
+
+    if channel_list is None:
+        channel_list = list(range(info['n_chan']))
+
+    info['tones'] = []
+
+    frequency_axis = np.asarray(noise_subgroup['freq'])
+    frequnecy = []
+    quality = []
+    for i in channel_list:
+        frequnecy.append(np.asarray(noise_subgroup['frequency_' + str(int(i))]))
+        quality.append(np.asarray(noise_subgroup['quality_' + str(int(i))]))
+        info['tones'].append(noise_subgroup['quality_' + str(int(i))].attrs.get("tone"))
+
+    fv.close()
+
+    return info, frequency_axis, frequnecy, quality

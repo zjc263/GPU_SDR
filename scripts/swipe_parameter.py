@@ -176,7 +176,7 @@ if __name__ == "__main__":
         tones = np.asarray(tones)
         tones = np.concatenate((tones,guard_tones))
 
-        noise_filename = u.Get_noise(
+        noise_filename = u.get_tones_noise(
             tones,
             measure_t = args.time,
             rate = seed_rate,

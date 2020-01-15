@@ -383,7 +383,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
 
     return output_filename
 
-def Get_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
+def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
               Device = None, delay = None, pf_average = 4, mode = "DIRECT", trigger = None, repeat_measure = False, **kwargs):
     '''
     Perform a noise acquisition using fixed tone technique.
@@ -859,12 +859,14 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
             * add_info could be a list of the same length oF filenames containing additional legend information.
             * html will make the function retrn html code instead of saving a html file in case of plotly backend.
             * fig_size: matplotlib fig size in inches (xx,yy).
+            * subfolder: save the plots in a subfoder modifying the name string (Folder must exist).
 
         :return the name of the file saved
     '''
 
     filenames = to_list_of_str(filenames)
-
+    if cryostat_attenuation is None:
+        cryostat_attenuation = 0
     if not (backend in ['matplotlib', 'plotly']):
         err_msg = "Cannot plot noise with backend \'%s\': not implemented"%backend
         print_error(err_msg)
@@ -878,6 +880,11 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
         html = kwargs['html']
     except KeyError:
         html = False
+
+    try:
+        subfolder_name = str(kwargs['subfolder']) + "/"
+    except KeyError:
+        subfolder_name = ''
 
     if len(filenames)>1:
         print("Plotting noise from files:")
@@ -897,15 +904,9 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
     except KeyError:
         pass
 
-    if output_filename is None:
-        output_filename = "Noise_"
-        if len(filenames)>1:
-            output_filename+="compare_"
-        output_filename += get_timestamp()
-
     plot_title = 'USRP Noise spectra from '
     if len(filenames) < 2:
-        plot_title += "file: " + filenames[0] + "."
+        plot_title += "file: " + (filenames[0]).split("/")[-1] + "."
     else:
         plot_title += "multiple files."
 
@@ -976,12 +977,22 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
             else:
                 plot_title += "Effective rate: %.2f ksps" % (info['rate'] / 1e3)
 
+        if output_filename is None:
+            output_filename = "Noise_"
+            if channel_list is not None:
+                output_filename += "channels_"
+                for ii in channel_list:
+                    output_filename += "%d_"%ii
+            if len(filenames)>1:
+                output_filename+="compare_"
+            output_filename += (filenames[0].split("/")[-1]).split(".")[0]
+
         for i in range(len(info['tones'])):
             readout_power = get_readout_power(filename, i, tx_front_end, usrp_number) - cryostat_attenuation
             R = real[i]
             I = imag[i]
             if backend == 'matplotlib':
-                label = filename+"\n"
+                label = filename.split("/")[-1]+"\n"
                 label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
                 label += "\nReadout pwr %.1f dBm" % (readout_power)
                 if add_info_labels is not None:
@@ -989,7 +1000,7 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
                 ax.semilogx(freq, R, '--', color=get_color(f_count + i), label="Real " + label)
                 ax.semilogx(freq, I, color=get_color(f_count + i), label="Imag " + label)
             elif backend == 'plotly':
-                label = filename+"<br>"
+                label = filename.split("/")[-1]+"<br>"
                 label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
                 label += "<br>Readout pwr %.1f dBm" % (readout_power)
                 updatemenus = list([
@@ -1046,8 +1057,8 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
         ax.xaxis.set_major_formatter(formatter0)
         ax.grid(True)
         output_filename += '.png'
-        print_debug("Saving %s..."%output_filename)
-        fig.savefig(output_filename, bbox_inches="tight")
+        print_debug("Saving %s ..."%(subfolder_name  + output_filename.split("/")[-1]))
+        fig.savefig(subfolder_name + output_filename.split("/")[-1], bbox_inches="tight")
         pl.close(fig)
 
 
@@ -1059,22 +1070,13 @@ def plot_noise_spec(filenames, channel_list=None, max_frequency=None, title_info
         fig['layout'].update(title=plot_title)
         fig['layout'].update(xaxis_type="log")
 
-        fig['layout'].update(
-            images=[dict(
-                source="https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Caltech_Logo.svg/1000px-Caltech_Logo.svg.png",
-                xref="paper", yref="paper",
-                x=0, y=0,
-                sizex=0.1, sizey=0.1,
-                xanchor="left", yanchor="bottom"
-            )],
-        )
-
         output_filename += ".html"
         style_plotly_figure(fig)
         if html:
             print_debug("Noise plotting done")
             return  plotly.offline.plot(fig, filename=output_filename, auto_open=False, output_type = 'div')
-        plotly.offline.plot(fig, filename=output_filename, auto_open=auto_open)
+        print_debug("Saving %s ..."%(subfolder_name  + output_filename.split("/")[-1]))
+        plotly.offline.plot(fig, filename=subfolder_name  + output_filename.split("/")[-1], auto_open=auto_open)
 
     print_debug("Noise plotting done")
     return output_filename
@@ -1265,7 +1267,7 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
             - a list of strings containing the files to plot.
             - decimation: eventually deciamte the signal before plotting.
             - displayed_samples: calculate decimation to display a certain number of samples.
-            - low pass: floating point number controlling the cut-off frequency of a low pass filter that is eventually applied to the data.
+            - low pass: floating point number controlling the cut-off frequency in Hz of a low pass filter that is eventually applied to the data.
             - backend: [string] choose the return type of the plot. Allowed backends for now are:
                 * matplotlib: creates a matplotlib figure, plots in non-blocking mode and return the matplotlib figure object. kwargs in this case accept:
                     - size: size of the plot in the form of a tuple (inches,inches). Default is matplotlib default.
@@ -1282,6 +1284,8 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
                 * usrp_number and front_end can be passed to the openH5file() function.
                 * fig_size: the size of matplotlib figure.
                 * add_info: list of strings as long as the file list to add info to the legend.
+                * subfolder: specify subforder where to save files. Folder is included in the filename and must exist. Default is no subfoder
+
 
         Returns:
             - the complete name of the saved file or None in case no file is saved.
@@ -1291,13 +1295,23 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
         '''
         downsample_warning = True
         overwriting_decim_waring = True
+        filenames = to_list_of_str(filenames)
         try:
             fig_size = kwargs['figsize']
         except KeyError:
             fig_size = None
 
+        try:
+            subfolder_name = str(kwargs['subfolder']) + "/"
+        except KeyError:
+            subfolder_name = ''
+
         if output_filename is None:
-            output_filename = "USRP_freq_timestream_"+get_timestamp()
+            output_filename  = "USRP_freq_timestream_"
+            if len(filenames)>1:
+                output_filename += "compare_"
+            output_filename += (filenames[0].split("/")[-1]).split(".")[0]
+
         try:
             add_info_labels = kwargs['add_info']
         except KeyError:
@@ -1326,7 +1340,6 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
             fig['layout']['xaxis'].update(exponentformat='SI')
             fig['layout']['xaxis1'].update(title='Time [s]')
 
-        filenames = to_list_of_str(filenames)
 
         print_debug("Plotting from files:")
         for i in range(len(filenames)):
@@ -1381,25 +1394,13 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
                 file_end_time = end_time * effective_rate
             else:
                 file_end_time = None
-
             freq_ts, qr_ts = get_frequency_timestreams(filename,
-                start = file_start_time,
-                end = file_end_time,
+                start = start_time,
+                end = end_time,
                 channel_freq = None,
                 frontend = None
             )
-            # samples, errors = openH5file(
-            #     filename,
-            #     ch_list=channel_list,
-            #     start_sample=file_start_time,
-            #     last_sample=file_end_time,
-            #     usrp_number=usrp_number,
-            #     front_end=front_end,
-            #     verbose=False,
-            #     error_coord=True
-            # )
 
-            #print_debug("plot_raw_data() found %d channels each long %d samples" % (len(samples), len(samples[0])))
             if channel_list == None:
                 ch_list = list(range(len(freq_ts)))
             else:
@@ -1410,7 +1411,7 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
                 else:
                     ch_list = channel_list
 
-
+            freqs = parameters.get(ant[0], 'freq') + parameters.get(ant[0], 'rf')
             # prepare samples TODO
             for i in ch_list:
 
@@ -1430,6 +1431,7 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
                     decimation = int(np.abs(decimation))
                     Y1 = signal.decimate(Y1, decimation, ftype='fir')
                     Y2 = signal.decimate(Y2, decimation, ftype='fir')
+
                 else:
                     decimation = 1
 
@@ -1440,32 +1442,29 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
                 else:
                     rate_tag = 'rate: %.2f ksps' % (effective_rate / 1e3)
 
-                if freq is None:
-                    label = "Channel %d" % i
-                else:
-                    label = "Channel %.2f MHz" % (freq[i] / 1.e6)
+                label = "Channel %.2f MHz" % (freqs[i] / 1.e6)
 
                 if backend == 'matplotlib':
-                    label += "\n" + filename
+                    label += "\n" + filename.split("/")[-1]
                     if add_info_labels is not None:
                         label += "\n" + add_info_labels[file_count]
-                    ax[0].plot(X[decimation:-decimation], Y1[decimation:-decimation], color=get_color(i + file_count), label=label)
-                    ax[1].plot(X[decimation:-decimation], Y2[decimation:-decimation], color=get_color(i + file_count))
+                    ax[0].plot(X, Y1, color=get_color(i + file_count), label=label)
+                    ax[1].plot(X, Y2, color=get_color(i + file_count))
                 elif backend == 'plotly':
-                    label += "<br>" + filename
+                    label += "<br>" + filename.split("/")[-1]
                     if add_info_labels is not None:
                         label += "<br>" + add_info_labels[file_count]
                     fig.append_trace(go.Scatter(
-                        x=X[decimation:-decimation],
-                        y=Y1[decimation:-decimation],
+                        x=X,
+                        y=Y1,
                         name=label,
                         legendgroup="group" + str(i) + "file" + str(file_count),
                         line=dict(color=get_color(i + file_count)),
                         mode='lines'
                     ), 1, 1)
                     fig.append_trace(go.Scatter(
-                        x=X[decimation:-decimation],
-                        y=Y2[decimation:-decimation],
+                        x=X,
+                        y=Y2,
                         # name = "channel %d"%i,
                         showlegend=False,
                         legendgroup="group" + str(i) + "file" + str(file_count),
@@ -1480,12 +1479,14 @@ def plot_frequency_timestreams(filenames, decimation=None, displayed_samples=Non
             ax[0].legend(handles, labels, bbox_to_anchor=(1.04, 1), loc="upper left")
             ax[0].grid(True)
             ax[1].grid(True)
-            final_filename = output_filename + '.png'
+            final_filename = subfolder_name + output_filename + '.png'
+            print_debug("Saving plot to %s ..."%final_filename)
             fig.savefig(final_filename, bbox_inches="tight")
             pl.close(fig)
 
         if backend == 'plotly':
-            final_filename = output_filename + ".html"
+            final_filename = subfolder_name + output_filename + ".html"
+            print_debug("Saving plot to %s ..."%final_filename)
             fig['layout'].update(title=plot_title + "<br>" + rate_tag)
             plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
@@ -1742,8 +1743,8 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
         fig['layout']['yaxis3'].update(title='Magnitude [dB]')
         fig['layout']['xaxis2'].update(title='Phase [Rad]')
         fig['layout']['yaxis1'].update(title='I [ADC]',scaleanchor = "x",)
-        fig['layout'].update(title=("Diagnostic of %s.png"%(noise_filename.split("/")[-1])))
-        final_output_name = addname+"/"+"diagnostic_%s.png"%(noise_filename.split("/")[-1])+".html"
+        fig['layout'].update(title=("Diagnostic of %s"%(noise_filename.split("/")[-1])))
+        final_output_name = addname+"/"+"diagnostic_%s"%((noise_filename.split("/")[-1])).split(".")[0]+".html"
         if kwargs['auto_open'] is not None:
             auto_open = kwargs['auto_open']
         else:
@@ -1757,13 +1758,371 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
     # should be name of the file
     return ""
 
-def calculate_NEF_spectra():
-    #copied from calculate_spec
+
+
+def NEF_spectra_helper(frequency_timestream, quality_timestream, sampling_rate, welch = 1, clip = 0):
+    '''
+    Helper function to calculate the noise spectra in units of quality factor and frequency.
+
+    Arguments:
+        - frequency_timestream: single channel frequency timestream.
+        - quality_timestream: single channel frequency timestream.
+        - sampling_rate: sampling frequency.
+        - welch: 1/welch factor. Default is 1.
+        - clip: number of samples to clip from the measure. Default is 0.
+
+    Return:
+        Tuple containing (frequency axis, frequency spectrum, quality spectrum)
+    '''
+
+    if len(frequency_timestream) != len(quality_timestream):
+        print_warning("quality and frequency timestreams have different lenghts")
+    clip = int(clip)
+    welch = int(welch)
+
+    if clip >0:
+        frequency_timestream = frequency_timestream[clip:]
+        quality_timestream = quality_timestream[clip:]
+
+    if welch < 1:
+        print_warning("Welch factor cannot be less than 1. Setting it to 1")
+        welch = 1
+
+    welch = int(min(len(frequency_timestream), len(quality_timestream))/float(welch))
+
+    frequency_axis, frequency_spectra =  signal.welch(frequency_timestream, nperseg=welch, fs=sampling_rate, detrend='linear',scaling='density')
+    frequency_axis, quality_spectra = signal.welch(quality_timestream, nperseg=welch, fs=sampling_rate, detrend='linear',scaling='density')
+
+    return frequency_axis, np.sqrt(frequency_spectra), np.sqrt(quality_spectra)
+
+def calculate_NEF_spectra(filename, welch = 1, clip = 0.1, verbose = True, usrp_number = 0):
+    '''
+    Calculate the frequency noise spectra and the quality factor noise spectra and stores the result in the hdf5 file.
+    Arguments:
+        - filename: noise file where to source the data. Note that a matching resonator group has to be present in the file(s).
+        - welch: in how many segment to divide (and average) the lenght of the timestream to calculate the noise spectra.
+        - clip: how many seconds to clip from the measure before calculating the spectra.
+        - verbose: print debug information. Default is True.
+        - usrp_number: usrp number where the samples are coming from.
+    '''
+
+    filename = format_filename(filename)
+
+    freq_ts, qr_ts = get_frequency_timestreams(filename,
+        start = None,
+        end = None,
+        channel_freq = None,
+        frontend = None
+    )
+
+    parameters = global_parameter()
+    parameters.retrive_prop_from_file(filename)
+    ant = parameters.get_active_rx_param()
+
+    active_RX_param = parameters.parameters[ant[0]]
+
+    try:
+        if active_RX_param['wave_type'][0] == "DIRECT":
+            if (active_RX_param['decim']>0):
+                sampling_rate = float(active_RX_param['rate']) / active_RX_param['decim']
+            else:
+                sampling_rate = float(active_RX_param['rate'])
+        else:
+            sampling_rate = float(active_RX_param['rate']) / active_RX_param['fft_tones']
+            if active_RX_param['decim']>1:
+                sampling_rate /= float(active_RX_param['decim'])
+    except TypeError:
+        print_warning("Parameters passed to spectrum evaluation are not valid. Sampling rate = 1")
+        sampling_rate = 1
+
+    except ZeroDivisionError:
+        print_warning("Parameters passed to spectrum evaluation are not valid. Sampling rate = 1")
+        sampling_rate = 1
+
+    clip = clip * sampling_rate
+
+    Results = Parallel(n_jobs=min(N_CORES,3), verbose=1, backend=parallel_backend)(
+        delayed(NEF_spectra_helper)(
+            frequency_timestream = freq_ts[i],
+            quality_timestream = qr_ts[i],
+            sampling_rate =sampling_rate,
+            welch = welch,
+            clip = clip,
+        ) for i in range(len(freq_ts))
+    )
+
+    if verbose: print_debug("Saving result on file " + filename.split("/")[-1] + " ...")
+
+    fv = h5py.File(filename, 'r+')
+
+    noise_group_name = "Noise_QF" + str(int(usrp_number))
+
+    try:
+        noise_group = fv.create_group(noise_group_name)
+    except ValueError:
+        noise_group = fv[noise_group_name]
+
+    try:
+        noise_subgroup = noise_group.create_group(ant[0])
+    except ValueError:
+        print_warning("Overwriting QF Noise subgroup %s in h5 file" % ant[0])
+        del noise_group[ant[0]]
+        noise_subgroup = noise_group.create_group(ant[0])
+
+    noise_subgroup.attrs.create(name="welch", data=welch)
+    noise_subgroup.attrs.create(name="rate", data=sampling_rate)
+    noise_subgroup.attrs.create(name="n_chan", data=len(Results))
+
+    noise_subgroup.create_dataset("freq", data=Results[0][0], compression=H5PY_compression)
+
+    for i in range(len(Results)):
+        tone_freq = active_RX_param['rf'] + active_RX_param['freq'][i]
+        ds = noise_subgroup.create_dataset("frequency_" + str(i), data=Results[i][1], compression=H5PY_compression,
+                                           dtype=np.dtype('Float32'))
+        ds.attrs.create(name="tone", data=tone_freq)
+        ds = noise_subgroup.create_dataset("quality_" + str(i), data=Results[i][2], compression=H5PY_compression,
+                                           dtype=np.dtype('Float32'))
+        ds.attrs.create(name="tone", data=tone_freq)
+
+    print_debug("calculate_NEF_spectra() done.")
+    fv.close()
+
     return
 
-def get_NEF_spec():
-    return
+def plot_NEF_spectra(filenames, channel_list=None, max_frequency=None, title_info=None, backend='matplotlib',
+                    cryostat_attenuation=0, auto_open=True, output_filename=None, **kwargs):
+    '''
+    Plot the quality factor and frequency noise spectra of given, pre-analized, H5 files.
 
-def plot_NEF_spectra():
-    #plot_spec
-    return
+    Arguments:
+        - filenames: list of strings containing the filenames.
+        - channel_list:
+        - max_frequency: maximum frequency to plot.
+        - title_info: add a custom line to the plot title
+        - backend: see plotting backend section for informations.
+        - auto_open: open the plot in default system browser if plotly backend is selected (non-blocking) or open the matplotlib figure (blocking). Default is True.
+        - output_filename: output filename without any system extension. Default is Noise_timestamp().xx
+        - kwargs:
+            * usrp_number and front_end can be passed to the openH5file() function.
+            * tx_front_end can be passed to manually determine the tx frontend to calculate the readout power.
+            * add_info could be a list of the same length oF filenames containing additional legend information.
+            * html will make the function retrn html code instead of saving a html file in case of plotly backend.
+            * fig_size: matplotlib fig size in inches (xx,yy).
+            * subfolder: save the plots in a subfoder modifying the name string (Folder must exist).
+
+        :return the name of the file saved
+    '''
+
+    filenames = to_list_of_str(filenames)
+    if cryostat_attenuation is None:
+        cryostat_attenuation = 0
+    if not (backend in ['matplotlib', 'plotly']):
+        err_msg = "Cannot plot noise with backend \'%s\': not implemented"%backend
+        print_error(err_msg)
+        raise ValueError(err_msg)
+    try:
+        fig_size = kwargs['figsize']
+    except KeyError:
+        fig_size = None
+
+    try:
+        html = kwargs['html']
+    except KeyError:
+        html = False
+
+    try:
+        subfolder_name = str(kwargs['subfolder']) + "/"
+    except KeyError:
+        subfolder_name = ''
+
+    if len(filenames)>1:
+        print("Plotting noise from files:")
+        for f in filenames:
+            print(("\t%s"%f))
+    else:
+        print(("Plotting QF noise from file %s ..."%filenames[0]))
+
+    add_info_labels = None
+    try:
+        add_info_labels = kwargs['add_info']
+        if add_info_labels is None:
+            pass
+        elif len(add_info_labels) != len(filenames):
+            print_warning("Cannot add info labels on QF noise plot. len(add_info_labels)(%d)!=len(filenames)(%d)"%(len(add_info_labels),len(filenames)))
+            add_info_labels = None
+    except KeyError:
+        pass
+
+    plot_title = 'USRP QF Noise spectra from '
+    if len(filenames) < 2:
+        plot_title += "file: " + (filenames[0]).split("/")[-1] + "."
+    else:
+        plot_title += "multiple files."
+
+    if backend == 'matplotlib':
+        fig, ax = pl.subplots(nrows=1, ncols=1)
+        if fig_size is None:
+            fig_size = (16, 10)
+
+        fig.set_size_inches(fig_size[0], fig_size[1])
+
+        ax.set_xlabel("Frequency [Hz]")
+
+
+    elif backend == 'plotly':
+        fig = plotly.subplots.make_subplots(rows=1, cols=1)
+        fig['layout']['xaxis1'].update(title="Frequency [Hz]")#), type='log')
+
+    y_name_set = True
+    rate_tag_set = True
+
+    try:
+        usrp_number = kwargs['usrp_number']
+    except KeyError:
+        usrp_number = None
+    try:
+        front_end = kwargs['front_end']
+    except KeyError:
+        front_end = None
+    try:
+        tx_front_end = kwargs['tx_front_end']
+    except KeyError:
+        tx_front_end = None
+    f_count = 0
+    for filename in filenames:
+        info, freq, Frequency, Quality = get_NEF_spec(
+            filename,
+            usrp_number=usrp_number,
+            front_end=front_end,
+            channel_list=channel_list
+        )
+        if max_frequency is not None:
+            index_cut = find_nearest(freq, max_frequency)
+            index_cut = np.min([len(freq),len(Frequency[0]),index_cut])
+            freq = freq[:index_cut]
+            for ii in range(len(Quality)):
+                Quality[ii] = Quality[ii][:index_cut]
+                Frequency[ii] = Frequency[ii][:index_cut]
+
+        if y_name_set:
+            y_name_set = False
+
+            if backend == 'matplotlib':
+                ax.set_ylabel("PSD [Hz/sqrt(Hz)] or Qr/sqrt(Hz)")
+
+
+            elif backend == 'plotly':
+                fig['layout']['yaxis1'].update(title="PSD [Hz/sqrt(Hz)] or Qr/sqrt(Hz)")
+
+
+        if rate_tag_set:
+            rate_tag_set = False
+            if info['rate'] / 1e6 > 1.:
+                plot_title += "Effective rate: %.2f Msps" % (info['rate'] / 1e6)
+            else:
+                plot_title += "Effective rate: %.2f ksps" % (info['rate'] / 1e3)
+
+        if output_filename is None:
+            output_filename = "QFNoise_"
+            if channel_list is not None:
+                output_filename += "channels_"
+                for ii in channel_list:
+                    output_filename += "%d_"%ii
+            if len(filenames)>1:
+                output_filename+="compare_"
+            output_filename += (filenames[0].split("/")[-1]).split(".")[0]
+
+        for i in range(len(info['tones'])):
+            readout_power = get_readout_power(filename, i, tx_front_end, usrp_number) - cryostat_attenuation
+            R = Frequency[i]
+            I = Quality[i]
+            if backend == 'matplotlib':
+                label = filename.split("/")[-1]+"\n"
+                label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
+                label += "\nReadout pwr %.1f dBm" % (readout_power)
+                if add_info_labels is not None:
+                    label += "\n" + add_info_labels[f_count]
+                ax.loglog(freq, R, '--', color=get_color(f_count + i), label="Frequency " + label)
+                ax.loglog(freq, I, color=get_color(f_count + i), label="Quality " + label)
+            elif backend == 'plotly':
+                label = filename.split("/")[-1]+"<br>"
+                label += "Tone freq: %.2f MHz" % (info['tones'][i] / 1e6)
+                label += "<br>Readout pwr %.1f dBm" % (readout_power)
+                fig.update_layout(xaxis_type="log", yaxis_type="log")
+                updatemenus = list([
+                    dict(active=1,
+                         buttons=list([
+                            dict(label='Log Scale',
+                                 method='update',
+                                 args=[{'visible': [True, True]},
+                                       {'title': 'Log scale',
+                                        'xaxis': {'type': 'log'}}]),
+                            dict(label='Linear Scale',
+                                 method='update',
+                                 args=[{'visible': [True, False]},
+                                       {'title': 'Linear scale',
+                                        'xaxis': {'type': 'linear'}}])
+                            ]),
+                            direction = 'left',
+                            pad = {'r': 10, 't': 10},
+                            showactive = False,
+                            type = 'buttons',
+                            x = 0.9,
+                            xanchor = 'left',
+                            y = 1,
+                            yanchor = 'top'
+                        )
+                    ])
+                if add_info_labels is not None:
+                    label += "<br>" + add_info_labels[f_count]
+                fig.append_trace(go.Scatter(
+                    x=freq,
+                    y=R,
+                    name="Frequency " + label,
+                    legendgroup="group" + str(i) + "file" + str(f_count),
+                    line=dict(color=get_color(f_count + i)),
+                    mode='lines'
+                ), 1, 1)
+                fig.append_trace(go.Scatter(
+                    x=freq,
+                    y=I,
+                    name="Quality " + label,
+                    legendgroup="group" + str(i) + "file" + str(f_count),
+                    line=dict(color=get_color(f_count + i), dash='dot'),
+                    mode='lines'
+                ), 1, 1)
+        # increase file counter
+        f_count += 1
+
+    if backend == 'matplotlib':
+        if title_info is not None:
+            plot_title += "\n" + title_info
+        fig.suptitle(plot_title)
+        ax.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
+        formatter0 = EngFormatter(unit='Hz')
+        ax.xaxis.set_major_formatter(formatter0)
+        ax.grid(True)
+        output_filename += '.png'
+        print_debug("Saving %s ..."%(subfolder_name  + output_filename.split("/")[-1]))
+        fig.savefig(subfolder_name + output_filename.split("/")[-1], bbox_inches="tight")
+        pl.close(fig)
+
+
+    elif backend == 'plotly':
+        if title_info is not None:
+            plot_title += "<br>" + title_info
+
+        fig['layout'].update(updatemenus=updatemenus)
+        fig['layout'].update(title=plot_title)
+        fig['layout'].update(xaxis_type="log")
+
+        output_filename += ".html"
+        style_plotly_figure(fig)
+        if html:
+            print_debug("Noise plotting done")
+            return  plotly.offline.plot(fig, filename=output_filename, auto_open=False, output_type = 'div')
+        print_debug("Saving %s ..."%(subfolder_name  + output_filename.split("/")[-1]))
+        plotly.offline.plot(fig, filename=subfolder_name  + output_filename.split("/")[-1], auto_open=auto_open)
+
+    print_debug("QF Noise plotting done")
+    return output_filename

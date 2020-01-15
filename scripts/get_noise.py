@@ -26,7 +26,7 @@ def run(rate,freq,front_end, tones, lapse, decimation, gain, vna, mode, pf, trig
 
 
     #trigger = u.trigger_template(rate = rate/decimation)
-    noise_filename = u.Get_noise(tones, measure_t = lapse, rate = rate, decimation = decimation, amplitudes = amplitudes,
+    noise_filename = u.get_tones_noise(tones, measure_t = lapse, rate = rate, decimation = decimation, amplitudes = amplitudes,
                               RF = freq, output_filename = None, Front_end = front_end,Device = None, delay = None,
                               pf_average = pf, tx_gain = gain, mode = mode, trigger = trigger)
     if vna is not None:

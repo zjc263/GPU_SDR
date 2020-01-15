@@ -40,7 +40,7 @@ def run(rate,freq,front_end, tones, lapse, decimation, gain):
     thread_active = True
     t = threading.Thread(target=fake_feeder, args=())
     t.start()
-    noise_filename = u.Get_noise(tones, measure_t = lapse, rate = rate, decimation = decimation, amplitudes = None,
+    noise_filename = u.get_tones_noise(tones, measure_t = lapse, rate = rate, decimation = decimation, amplitudes = None,
                               RF = freq, output_filename = None, Front_end = front_end,Device = None, delay = 1000e-9,
                               pf_average = 4, tx_gain = gain, push_queue = data_queue)
 

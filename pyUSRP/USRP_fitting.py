@@ -843,7 +843,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
 
     Arguments:
         - filenames: the funcion accept a list of filenames where to source data. A single filename is fine also.
-        - reso_freq: list of resonator frequency in MHz. This arguments is useful to plot only selected resonator from file. The resonator will be selected with the closest approximation of the f0.
+        - reso_freq: single resonator frequency in MHz. This arguments is useful to plot only selected resonator from file. The resonator will be selected with the closest approximation of the f0.
         - backend: the backend used to plot. 'matplotlib' and 'plotly' are currently supported. Both will save a file to disk. Default is matplotlib.
         - verbose: print some debug line.
         - output_filename: set hte name of the output file without the extension (that depends on the backend).
@@ -854,13 +854,18 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
             - add_info: listo of strings. Must be the same lresonreso_grp[resonator]atorength of the file list. Add information to the legend ion the plot.
             - title: Change the title of the plot.
             - single_plots: if this option is True a folder named resonators_<vna_filename> will be created/accessed and one plot per each resonator created. This option only works with the matplotlib backend.
-
+            - subfolder: specify subforder where to save files. Folder is included in the filename and must exist. Default is no subfoder
     Return:
         - The filename of the saved plot.
     '''
 
     print("Plotting resonators...")
-    if verbose: print_debug("Froms file(s):")
+
+    try:
+        subfolder_name = str(kwargs['subfolder']) + "/"
+    except KeyError:
+        subfolder_name = ''
+
 
     filenames = to_list_of_str(filenames)
 
@@ -890,7 +895,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
         title = kwargs['title']
     except KeyError:
         if len(filenames) == 1:
-            title = "Resonator(s) plot from file %s"%filenames[0]
+            title = "Resonator(s) plot from file %s"%(filenames[0].split("/")[-1])
         else:
             title = "Resonator(s) comparison plot"
 
@@ -903,7 +908,9 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
         output_filename = "Resonators"
         if len(filenames)>1:
             output_filename+="_compare"
-        output_filename+="_"+get_timestamp()
+        if reso_freq is not None:
+            output_filename+="_channels_%dMHz"%int(reso_freq)
+        output_filename+="_"+((filenames[0]).split("/")[-1]).split(".")[0]
 
     if attenuation is None:
         attenuation = 0
@@ -917,6 +924,16 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
         resonators.append( get_fit_data(filename, verbose) )
         fit_info.append(get_fit_param(filename, verbose) )
         brf.append( get_best_readout(filename, verbose) )
+
+    if reso_freq is not None:
+        # Select the frequecy
+        for ff in range(len(filenames)):
+            selected = find_nearest(brf[ff],reso_freq*1e6)
+            brf[ff] = [brf[ff][selected]]
+            fit_info[ff] = [fit_info[ff][selected]]
+            resonators[ff] = [resonators[ff][selected]]
+        title+=" for channel : %.2f MHz"%fit_info[0][0]['f0']
+
 
     if backend == "matplotlib":
 
@@ -945,7 +962,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                     if len(filenames) == 1:
                         pass
                     else:
-                        label += "file: %s\n"%filenames[i]
+                        label += "file: %s\n"%((filenames[i]).split("/")[-1])
 
                     label += "$f_0$: %.2f MHz\n"%(fit_info[i][j]['f0'])
                     Qi = 1./(1./fit_info[i][j]['Qr'] - 1./np.real(fit_info[i][j]['Qe']))
@@ -1012,7 +1029,8 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                        bbox_transform=fig.transFigure,
                        title = "Solid lines are original data, marker is readout point."
                        )
-            final_output_name = output_filename+".png"
+            final_output_name = subfolder_name +output_filename+".png"
+            print_debug("Plotting resonators fits to %s ..."%final_output_name)
             fig.savefig(final_output_name, bbox_inches = 'tight')
 
         else:
@@ -1053,7 +1071,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                     if len(filenames) == 1:
                         pass
                     else:
-                        label += "file: %s\n"%filenames[i]
+                        label += "file: %s\n"%(filenames[i]).split("/")[-1]
 
                     label += "$f_0$: %.2f MHz\n"%(fit_info[i][j]['f0'])
                     Qi = 1./(1./fit_info[i][j]['Qr'] - 1./np.real(fit_info[i][j]['Qe']))
@@ -1114,7 +1132,8 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                                bbox_to_anchor=(1.04,1),
                                title = "Solid lines are original data"
                                )
-                    final_output_name = output_filename+".png"
+                    final_output_name = subfolder_name + output_filename+".png"
+                    print_debug("Plotting resonators fits to %s ..."%final_output_name)
                     fig.savefig(final_output_name, bbox_inches = 'tight')
                     pl.close(fig)
                     ret_names.append(folder_name+'/'+final_output_name)
@@ -1140,7 +1159,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
             )
         title_fig = r'Fit (dashed) vs data (solid). Zero is set to f0 of each resonator, marker is the readout frequency.<br>'
         if len(filenames) == 1:
-            title_fig+="From file %s"%filenames[0]
+            title_fig+="From file %s"%(filenames[0].split("/")[-1])
         else:
             title_fig+="From multiple (%d) files"%(len(filenames))
         for i in range(len(filenames)):
@@ -1149,7 +1168,7 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                 if len(filenames) == 1:
                     label = ""
                 else:
-                    label += "file: %s<br>"%filenames[i]
+                    label += "file: %s<br>"%(filenames[i]).split("/")[-1]
 
                 label += r'f_0: %.2f MHz<br>'%(fit_info[i][j]['f0'])
                 Qi = 1./(1./fit_info[i][j]['Qr'] - 1./np.real(fit_info[i][j]['Qe']))
@@ -1196,7 +1215,8 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                 fig['layout']['xaxis2'].update(title='Phase [Rad]')
                 fig['layout']['yaxis1'].update(title='I [ADC]',scaleanchor = "x",)
 
-        final_output_name = output_filename+".html"
+        final_output_name = subfolder_name + output_filename+".html"
+        print_debug("Plotting resonators fits to %s ..."%final_output_name)
         plotly.offline.plot(fig, filename=final_output_name,auto_open=auto_open)
 
     else:

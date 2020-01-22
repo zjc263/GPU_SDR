@@ -124,12 +124,12 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
         global dynamic_alloc_warning
         dev_name = "raw_data" + str(int(metadata['usrp_number']))
         group_name = metadata['front_end_code']
-        samples_per_channel = metadata['length'] / metadata['channels']
+        samples_per_channel = int(metadata['length'] / metadata['channels'])
         dataset = h5fp[dev_name][group_name]["data"]
         errors = h5fp[dev_name][group_name]["errors"]
         data_shape = np.shape(dataset)
-        data_start = index
-        data_end = data_start + samples_per_channel
+        data_start = int(index)
+        data_end = int(data_start + samples_per_channel)
         if ((trigger is not None) and (metadata['length']>0)):
             if trigger.trigger_control == "AUTO":
                 trigger_dataset = h5fp[dev_name][group_name]["trigger"]
@@ -379,8 +379,9 @@ def USRP_socket_bind(USRP_socket, server_address, timeout):
             USRP_socket.connect(server_address)
             return True
         except socket.error as msg:
-            print(("Socket binding " + str(msg) + ", " + "Retrying..."))
+            print(("Socket binding to %s, report: "%str(server_address) + str(msg) + ", " + "Retrying..."))
             return False
+            '''
             USRP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             USRP_socket.settimeout(1)
             USRP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -388,7 +389,7 @@ def USRP_socket_bind(USRP_socket, server_address, timeout):
             time.sleep(1)
             timeout = timeout - 1
             return USRP_socket_bind(USRP_socket, server_address, timeout)
-
+            '''
 
 def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
     '''
@@ -402,6 +403,7 @@ def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
     '''
 
     def decode_frontend(code):
+        code = code.decode('utf-8')
         return {
             'A': "A_TXRX",
             'B': "A_RX2",
@@ -412,12 +414,12 @@ def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
     try:
         header = np.fromstring(raw_header, dtype=header_type, count=1)
         metadata = {}
-        metadata['usrp_number'] = header[0]['usrp_number']
+        metadata['usrp_number'] = int(header[0]['usrp_number'])
         metadata['front_end_code'] = decode_frontend(header[0]['front_end_code'])
-        metadata['packet_number'] = header[0]['packet_number']
-        metadata['length'] = header[0]['length']
-        metadata['errors'] = header[0]['errors']
-        metadata['channels'] = header[0]['channels']
+        metadata['packet_number'] = int(header[0]['packet_number'])
+        metadata['length'] = int(header[0]['length'])
+        metadata['errors'] = int(header[0]['errors'])
+        metadata['channels'] = int(header[0]['channels'])
         return metadata
     except ValueError:
         if CLIENT_STATUS["keyboard_disconnect"] == False:
@@ -494,8 +496,7 @@ def Encode_async_message(payload):
     Note:
         This function performs no check on the validity of the JSON string.
     '''
-
-    return struct.pack('I', 0) + struct.pack('I', len(payload)) + payload
+    return struct.pack('I', 0) + struct.pack('I', len(payload)) +str.encode( payload)
 
 
 def Async_send(payload):
@@ -535,13 +536,18 @@ def Async_send(payload):
         return False
 
 
-def Async_thread():
+def Async_thread(USRP_server_address = None, USRP_server_address_port = None):
     '''Receiver thread for async messages from the GPU server. This function is ment to be run as a thread'''
 
     global Async_condition
     global Async_status
     global USRP_socket
-    global USRP_server_address
+    global USRP_IP_ADDR
+    #global USRP_server_address
+    if USRP_server_address is None:
+        USRP_server_address = USRP_IP_ADDR
+    if USRP_server_address_port is None:
+        USRP_server_address_port = 22001
 
     internal_status = True
     Async_status = False
@@ -563,7 +569,7 @@ def Async_thread():
     while time_elapsed < timeout and (not connected):
         try:
             print_debug("Async command thread:")
-            connected = USRP_socket_bind(USRP_socket, USRP_server_address, 7)
+            connected = USRP_socket_bind(USRP_socket, (USRP_server_address, USRP_server_address_port), 7)
             time.sleep(1)
             time_elapsed += 1
         except KeyboardInterrupt:
@@ -600,11 +606,11 @@ def Async_thread():
         size = 0
 
         if (internal_status):
-            header_data = ""
+            header_data = b''
             try:
                 while (len(header_data) < header_size) and internal_status:
                     header_timeout_counter += 1
-                    header_data += USRP_socket.recv(min(header_size, header_size - len(header_data)))
+                    header_data += USRP_socket.recv(min(header_size, header_size - len(header_data)))#.decode('utf-8', errors='ignore')
                     if old_header_len != len(header_data):
                         header_timeout_counter = 0
                     if (header_timeout_counter > header_timeout_limit):
@@ -629,11 +635,11 @@ def Async_thread():
                     Async_condition.release()
 
         if (internal_status and size > 0):
-            data = ""
+            data = b''
             try:
                 while (len(data) < size) and internal_status:
                     data_timeout_counter += 1
-                    data += USRP_socket.recv(min(size, size - len(data)))
+                    data += USRP_socket.recv(min(size, size - len(data)))#.decode('utf-8', errors='ignore')
                     if old_data_len != len(data):
                         data_timeout_counter = 0
                     if (data_timeout_counter > data_timeout_limit):
@@ -667,7 +673,7 @@ Async_RX_loop = Thread(target=Async_thread, name="Async_RX", args=(), kwargs={})
 Async_RX_loop.daemon = True
 
 
-def Wait_for_async_connection(timeout=None):
+def Wait_for_async_connection(timeout=None, address = None):
     '''
     Block until async thead has established a connection with the server or the thread is expired. In case a timeout value is given, returns after timeout if no connection is established before.
 
@@ -742,17 +748,15 @@ def Wait_for_sync_connection(timeout=None):
     return x
 
 
-def Start_Async_RX():
+def Start_Async_RX(USRP_server_address = None, USRP_server_address_port = None):
     '''Start the Aswync thread. See Async_thread() function for a more detailed explanation.'''
 
     global Async_RX_loop
     reinit_async_socket()
-    try:
-        Async_RX_loop.start()
-    except RuntimeError:
-        Async_RX_loop = Thread(target=Async_thread, name="Async_RX", args=(), kwargs={})
-        Async_RX_loop.daemon = True
-        Async_RX_loop.start()
+
+    Async_RX_loop = Thread(target=Async_thread, name="Async_RX", args=(USRP_server_address, USRP_server_address_port), kwargs={})
+    Async_RX_loop.daemon = True
+    Async_RX_loop.start()
     # print "Async RX thread launched"
 
 
@@ -768,7 +772,7 @@ def Stop_Async_RX():
     print_line("Async RX stopped")
 
 
-def Connect(timeout=None):
+def Connect(timeout=None, addrss = None):
     '''
     Connect both, the Syncronous and Asynchronous communication service.
 
@@ -780,11 +784,11 @@ def Connect(timeout=None):
     '''
     ret = True
     try:
-        Start_Sync_RX()
+        Start_Sync_RX(USRP_server_address_data = addrss)
         # ret &= Wait_for_sync_connection(timeout = 10)
 
-        Start_Async_RX()
-        ret &= Wait_for_async_connection(timeout=10)
+        Start_Async_RX(USRP_server_address = addrss)
+        ret &= Wait_for_async_connection(timeout=timeout)
     except KeyboardInterrupt:
         print_warning("keyboard interrupt received. Closing connections.")
         exit()
@@ -811,7 +815,7 @@ def force_ternimate():
     Sync_RX_loop.terminate()
 
 
-def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue):
+def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue, USRP_server_address_data = None, USRP_server_address_data_port = None):
     '''
     Thread that recive data from the TCP data streamer of the GPU server and loads each packet in the data queue USRP_data_queue. The format of the data is specified in a subfunction fill_queue() and consist in a tuple containing (metadata,data).
 
@@ -819,12 +823,18 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue):
         This funtion is ment to be a standalone thread handled via the functions Start_Sync_RX() and Stop_Sync_RX().
     '''
 
+
+
     # global Sync_RX_condition
     # global Sync_RX_status
+    global USRP_IP_ADDR
     global USRP_data_socket
-    global USRP_server_address_data
+    #global USRP_server_address_data
     # global USRP_data_queue
-
+    if USRP_server_address_data is None:
+        USRP_server_address_data = USRP_IP_ADDR
+    if USRP_server_address_data_port is None:
+        USRP_server_address_data_port = 61360
     header_size = 5 * 4 + 1
 
     acc_recv_time = []
@@ -847,7 +857,7 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue):
     # try:
     while time_elapsed < timeout and (not connected):
         print_debug("RX sync data thread:")
-        connected = USRP_socket_bind(USRP_data_socket, USRP_server_address_data, 7)
+        connected = USRP_socket_bind(USRP_data_socket, (USRP_server_address_data, USRP_server_address_data_port), 7)
         time.sleep(1)
         time_elapsed += 1
 
@@ -883,13 +893,13 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue):
         # print internal_status
         # Sync_RX_condition.release()
         if (internal_status):
-            header_data = ""
+            header_data = b''
             try:
                 old_header_len = 0
                 header_timeout_counter = 0
                 while (len(header_data) < header_size) and internal_status:
                     header_timeout_counter += 1
-                    header_data += USRP_data_socket.recv(min(header_size, header_size - len(header_data)))
+                    header_data += USRP_data_socket.recv(min(header_size, header_size - len(header_data)))#.decode('utf-8', errors='ignore')
                     if old_header_len != len(header_data):
                         header_timeout_counter = 0
                     if (header_timeout_counter > header_timeout_limit):
@@ -922,12 +932,12 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue):
             # Print_Sync_Header(metadata)
 
         if (internal_status):
-            data = ""
+            data = b''
             try:
                 old_len = 0
 
                 while ((old_len < 8 * metadata['length']) and internal_status):
-                    data += USRP_data_socket.recv(min(8 * metadata['length'], 8 * metadata['length'] - old_len))
+                    data += USRP_data_socket.recv(min(8 * metadata['length'], 8 * metadata['length'] - old_len))#.decode('utf-8', errors='ignore')
 
                     if (len(data) == old_len):
                         data_timeout_counter += 1
@@ -992,7 +1002,7 @@ def signal_handler(sig, frame):
 
 Signal.signal(Signal.SIGINT, signal_handler)
 
-def Start_Sync_RX():
+def Start_Sync_RX(USRP_server_address_data = None, USRP_server_address_data_port = None):
     global Sync_RX_loop, USRP_data_socket, USRP_data_queue
     try:
         try:
@@ -1003,7 +1013,7 @@ def Start_Sync_RX():
             print(msg)
             pass
         Sync_RX_loop = multiprocessing.Process(target=Sync_RX, name="Sync_RX",
-                                               args=(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue), kwargs={})
+                                               args=(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue, USRP_server_address_data, USRP_server_address_data_port), kwargs={})
         Sync_RX_loop.daemon = True
         Sync_RX_loop.start()
     except RuntimeError:

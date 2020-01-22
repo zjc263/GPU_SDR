@@ -77,8 +77,12 @@ def get_receivers(h5group):
     subs = list(h5group.keys())
     for i in range( len(subs) ):
         mode = (h5group[subs[i]]).attrs.get("mode")
-        if mode.decode('utf-8') == "RX":
-            receivers.append(str(list(h5group.keys())[i]))
+        try:
+            if mode.decode('utf-8') == "RX":
+                receivers.append(str(list(h5group.keys())[i]))
+        except AttributeError:
+            if mode == "RX":
+                receivers.append(str(list(h5group.keys())[i]))
     return receivers
 
 
@@ -373,11 +377,44 @@ def check_errors(filename):
 
     print_debug("Checking for errors in %s... "%filename + result_msg)
     return result
+
+
+def get_meas_type(filename):
+    '''
+    Read the measurents type in a pyUSRP HDF5 file.
+    Returns a list of strings, one per each USRP.
+
+    Arguments:
+        - filename: single filename.
+
+    Returns:
+        - list f strings containing one measurement type per usrp present in the measure.
+
+    Raise:
+        - ValueError if the file is not operable with HDF5 lib.
+
+    '''
+    filename = format_filename(filename)
+    f = bound_open(filename, mode = 'r')
+    res = []
+    for name in [key for key in f.keys()]:
+        if name[:8] == "raw_data":
+            try:
+                res.append(
+                    str((f[name].attrs.get("meas_type")).decode('utf-8'))
+                )
+            except AttributeError:
+                res.append(
+                    str((f[name].attrs.get("meas_type")))
+                )
+    f.close()
+    return res
+
 def get_noise(filename, usrp_number=0, front_end=None, channel_list=None):
     '''
     Get the noise spectra from a a pre-analyzed H5 file.
 
-    Argumers:
+    Arguments:
         - filename: [string] the name of the file.
         - usrp_number: the server number of the usrp device. default is 0.
         - front_end: [string] name of the front end. default is extracted from data.
@@ -849,8 +886,10 @@ class global_parameter(object):
             except KeyError:
                 sub_prop['mode'] = "OFF"
                 return sub_prop
-
-            sub_prop['mode'] = sub_group.attrs.get('mode').decode('utf-8')
+            try:
+                sub_prop['mode'] = sub_group.attrs.get('mode').decode('utf-8')
+            except AttributeError:
+                sub_prop['mode'] = sub_group.attrs.get('mode')
             missing_attr_warning('mode', sub_prop['mode'])
 
             sub_prop['rate'] = sub_group.attrs.get('rate')
@@ -883,7 +922,10 @@ class global_parameter(object):
             sub_prop['freq'] = sub_group.attrs.get('freq').tolist()
             missing_attr_warning('freq', sub_prop['freq'])
 
-            sub_prop['wave_type'] = [xx.decode('utf-8') for xx in sub_group.attrs.get('wave_type').tolist()]
+            try:
+                sub_prop['wave_type'] = [xx.decode('utf-8') for xx in sub_group.attrs.get('wave_type').tolist()]
+            except AttributeError:
+                sub_prop['wave_type'] = [xx for xx in sub_group.attrs.get('wave_type').tolist()]
             missing_attr_warning('wave_type', sub_prop['wave_type'])
 
             sub_prop['ampl'] = sub_group.attrs.get('ampl').tolist()

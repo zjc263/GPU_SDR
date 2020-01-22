@@ -529,6 +529,7 @@ void Async_server::rx_async(async_queue* link_command_queue){
             if ((reinterpret_cast<int*>(header_buffer))[0]!=0){
                 print_warning("Corrupted async header detected!");
             }
+
             if (error == boost::system::errc::success){
                 //std::cout<<"Header size is "<<size<<std::endl;
 

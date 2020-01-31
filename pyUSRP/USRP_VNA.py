@@ -52,7 +52,7 @@ from .USRP_data_analysis import *
 from .USRP_delay import *
 
 def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_gain_A, tx_gain_B, Rate = None, decimation = True, RF_A = None, RF_B = None,
-               Device = None, output_filename = None, Multitone_compensation_A = None, Multitone_compensation_B = None, Iterations = 1, verbose = False, **kwargs):
+               Device = None, output_filename = None, Multitone_compensation_A = None, Multitone_compensation_B = None, Iterations = 1, verbose = False, subfolder = None, **kwargs):
 
     '''
     Perform a VNA scan using a two different frontens of a single USRP device.
@@ -76,12 +76,21 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
         - Multitone_compensation_B: integer representing the number of tones: compensate the amplitude of the signal to match a future multitones accuisition for frontend B.
         - Iterations: by default a single VNA scan pass is performed.
         - verbose: if True outputs on terminal some diagnostic info. deafult is False.
-        - keyword arguments: Each keyword argument will be interpreted as an attribute to add to the raw_data group of the h5 file.
-
+        - subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
     Returns:
         - filename where the measure is or empty string if something went wrong.
     '''
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY
+    #- subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure VNA")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
 
     if measure_t <= 0:
         err_msg = "Cannot execute a VNA measure with "+str(measure_t)+"s duration."
@@ -262,7 +271,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
     Packets_to_file(
         parameters = vna_command,
         timeout = None,
-        filename = output_filename,
+        filename = save_path+output_filename,
         dpc_expected = expected_samples,
         meas_type = "VNA", **kwargs
     )
@@ -274,7 +283,8 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
 
 
 def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decimation = True, RF = None, Front_end = None,
-               Device = None, output_filename = None, Multitone_compensation = None, Iterations = 1, verbose = False, repeat_measure = False, **kwargs):
+               Device = None, output_filename = None, Multitone_compensation = None, Iterations = 1, verbose = False, repeat_measure = False,
+               subfolder = None, **kwargs):
 
     '''
     Perform a VNA scan using a single frontend of a single USRP device.
@@ -295,13 +305,24 @@ def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decim
         - Iterations: by default a single VNA scan pass is performed.
         - repeat_measure: when true, in case of an error, repeat the measure and delete the old file. Default is False.
         - verbose: if True outputs on terminal some diagnostic info. deafult is False.
-        - keyword arguments: Each keyword argument will be interpreted as an attribute to add to the raw_data group of the h5 file.
+        - subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
 
     Returns:
         - filename where the measure is or empty string if something went wrong.
     '''
 
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY
+
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure VNA")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
+
 
     if measure_t <= 0:
         err_msg = "Cannot execute a VNA measure with "+str(measure_t)+"s duration."
@@ -436,11 +457,12 @@ def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decim
             expected_samples = Iterations * n_points
         else:
             expected_samples = number_of_samples
-
+        print_warning(save_path+output_filename)
+        time.sleep(1)
         Packets_to_file(
             parameters = vna_command,
             timeout = None,
-            filename = output_filename,
+            filename = save_path+output_filename,
             dpc_expected = expected_samples,
             meas_type = "VNA", **kwargs
         )

@@ -50,7 +50,7 @@ from .USRP_fitting import get_fit_param
 from .USRP_fitting import get_fit_data
 
 def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitudes_A = None, amplitudes_B = None, RF_A = None, RF_B = None, tx_gain_A = 0, tx_gain_B = 0, output_filename = None,
-              Device = None, delay = None, pf_average = None, mode = "DIRECT" ,**kwargs):
+              Device = None, delay = None, pf_average = None, mode = "DIRECT" , subfolder = None, **kwargs):
     '''
     Perform a noise acquisition using fixed tone technique on both frontend with a symmetrical PFB setup
 
@@ -66,10 +66,10 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
         - delay: delay between TX and RX processes. Default is taken from the INTERNAL_DELAY variable.
         - pf_average: pfb averaging factor. Default is 4 for PFB mode and 1 for DIRECT mode.
         - mode: noise acquisition kernels. DIRECT uses direct demodulation PFB use the polyphase filter bank technique. Note that PF average will refer to something slightly different in DIRECT mode (moving average ratio: 1 has no overlap).
+        - subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
         - kwargs:
             * verbose: additional prints. Default is False.
             * push_queue: queue for post writing samples.
-
     Note:
         - In the PFB acquisition scheme the decimation factor and bin width are directly correlated. This function execute a check
           on the input parameters to determine the number of FFT bins to use.
@@ -78,7 +78,17 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
         - filename of the measure file.
     '''
 
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY, USRP_power
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY, USRP_power
+
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure noise")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
 
     try:
         verbose = kwargs['verbose']
@@ -136,18 +146,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
         if len(tones_B) + len(tones_A) < prev:
             print_warning("Some tone has been discrarded because out of bandwidth")
 
-        '''
-        common = list(set(tones_A).intersection(tones_B))
-        if len(common) > 0:
-            print_warning("Some tone is compatible with both frontend tunings, see next messages.")
-            for cc in common:
-                if len(tones_A)>=len(tones_B):
-                    print_debug("length of tones A: %d, length of tones B: %d, removing from %s"%(len(tones_A),len(tones_B),'A'))
-                    np.delete(tones_A, np.where(tones_A == cc)[0][0])
-                else:
-                    print_debug("length of tones A: %d, length of tones B: %d, removing from %s"%(len(tones_A),len(tones_B),'B'))
-                    np.delete(tones_B, np.where(tones_B == cc)[0][0])
-        '''
+
         print_debug("RF_A\tRF_B\t[MHz]")
         print_debug("%.2f\t%.2f"%(RF_A/1e6,RF_B/1e6))
         print_debug("TONES_A\tTONES_B\t[MHz]")
@@ -372,7 +371,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
     Packets_to_file(
         parameters=noise_command,
         timeout=None,
-        filename=output_filename,
+        filename=save_path+output_filename,
         dpc_expected=max(expected_samples_A,expected_samples_B),
         meas_type="Noise",
         push_queue = push_queue,
@@ -384,7 +383,7 @@ def dual_get_noise(tones_A, tones_B, measure_t, rate, decimation = None, amplitu
     return output_filename
 
 def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
-              Device = None, delay = None, pf_average = 4, mode = "DIRECT", trigger = None, repeat_measure = False, **kwargs):
+              Device = None, delay = None, pf_average = 4, mode = "DIRECT", trigger = None, repeat_measure = False, subfolder = None, **kwargs):
     '''
     Perform a noise acquisition using fixed tone technique.
 
@@ -403,6 +402,7 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         - mode: noise acquisition kernels. DIRECT uses direct demodulation PFB use the polyphase filter bank technique. Note that PF average will refer to something slightly different in DIRECT mode (moving average ratio: 1 has no overlap).
         - trigger: class used for triggering. (See trigger section for more info). Default is no trigger.
         - repeat_measure: when true, in case of an error, repeat the measure and delete the old file. Default is False.
+        - subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
         - kwargs:
             * verbose: additional prints. Default is False.
             * push_queue: queue for post writing samples.
@@ -416,7 +416,17 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         - filename of the measure file.
     '''
 
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY, USRP_power
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY, USRP_power
+
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure Noise")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
 
     if ((mode != "PFB") and (mode != "DIRECT")):
         error_msg = "Noise acquisition mode %s not defined" % str(mode)
@@ -644,7 +654,7 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         Packets_to_file(
             parameters=noise_command,
             timeout=None,
-            filename=output_filename,
+            filename=save_path + output_filename,
             dpc_expected=expected_samples,
             meas_type="Noise",
             push_queue = push_queue,

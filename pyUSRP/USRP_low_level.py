@@ -72,8 +72,6 @@ data_type = np.complex64
 # threading condition variables for controlling Async RX and TX thread activity
 Async_condition = Condition()
 
-# variable used to notify the end of a measure, See Decode_async_payload()
-END_OF_MEASURE = False
 # mutex guarding the variable above
 EOM_cond = Condition()
 
@@ -112,7 +110,8 @@ CLIENT_STATUS["Sync_RX_status"] = False
 CLIENT_STATUS["keyboard_disconnect"] = False
 CLIENT_STATUS["keyboard_disconnect_attemp"] = 0
 CLIENT_STATUS["measure_running_now"] = False
-
+# variable used to notify the end of a measure, See Decode_async_payload()
+CLIENT_STATUS["END_OF_MEASURE"] = False
 
 
 # USRP calibration for float units in Vpp

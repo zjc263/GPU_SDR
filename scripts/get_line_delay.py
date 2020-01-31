@@ -53,7 +53,7 @@ if __name__ == "__main__":
         pass
 
     os.chdir(args.folder)
-
+    
     if not u.Connect():
         u.print_error("Cannot find the GPU server!")
         exit()

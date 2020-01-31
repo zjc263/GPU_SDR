@@ -27,8 +27,6 @@ if __name__ == "__main__":
     parser.add_argument('--mode', '-m', help='Noise acquisition kernels. DIRECT uses direct demodulation PFB use the polyphase filter bank technique.', type=str, default= "DIRECT")
     parser.add_argument('--trigger', '-tr', help='String describing the trigger to use. Default is no trigger. Use the name of the trigger classes defined in the trigger module with no parentesis', type=str)
 
-
-
     args = parser.parse_args()
     try:
         os.mkdir(args.folder)

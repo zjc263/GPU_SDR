@@ -397,6 +397,8 @@ def get_meas_type(filename):
     filename = format_filename(filename)
     f = bound_open(filename, mode = 'r')
     res = []
+    if f is None:
+        return ['Corrupted']
     for name in [key for key in f.keys()]:
         if name[:8] == "raw_data":
             try:
@@ -404,9 +406,14 @@ def get_meas_type(filename):
                     str((f[name].attrs.get("meas_type")).decode('utf-8'))
                 )
             except AttributeError:
-                res.append(
-                    str((f[name].attrs.get("meas_type")))
-                )
+                try:
+                    res.append(
+                        str((f[name].attrs.get("meas_type")))
+                    )
+                except AttributeError:
+                    res.append(
+                        "Not available"
+                    )
     f.close()
     return res
 
@@ -1041,8 +1048,9 @@ def Param_to_H5(H5fp, parameters_class, trigger = None, **kwargs):
         tx_names = parameters_class.get_active_tx_param()
         usrp_group = H5fp.create_group("raw_data" + str(int(parameters_class.parameters['device'])))
 
-        for tag_name in kwargs:
-            usrp_group.attrs.create(name=tag_name, data=kwargs[tag_name])
+        # Brute autotag feature has been disabled for better compatibility with the web-gui
+        #for tag_name in kwargs:
+        #    usrp_group.attrs.create(name=tag_name, data=kwargs[tag_name])
 
         for ant_name in tx_names:
             tx_group = usrp_group.create_group(ant_name)
@@ -1181,6 +1189,26 @@ def get_VNA_data(filename, calibrated = True, usrp_number = 0):
 
     f.close()
     return ret
+
+def get_VNA_iterations(filename, usrp_number = 0):
+    '''
+    Return the number of iterations in a VNA file.
+    '''
+    filename = format_filename(filename)
+    f = bound_open(filename)
+    frontends = ["A_RX2","B_RX2"]
+    for frontend in frontends:
+        try:
+            effective_samples = f['raw_data%d'%int(usrp_number)][frontend].attrs.get('samples')
+            n_swipe = f['raw_data%d'%int(usrp_number)][frontend].attrs.get('swipe_s')
+            if (effective_samples is not None) and (n_swipe is not None):
+                iterations = int(np.floor(float(effective_samples)/float(n_swipe[0])))
+                break
+        except KeyError:
+            iterations = 0
+    f.close()
+    if iterations == 0: print_warning("Could not determine number of iterations in file %s"%os.path.basename(filename))
+    return iterations
 
 def get_dynamic_VNA_data(filename, calibrated = True, usrp_number = 0):
     '''

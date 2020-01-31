@@ -48,99 +48,96 @@ if __name__ == "__main__":
 
     os.chdir(args.folder)
 
-    if(False): #DEBUG!!!
 
+    try:
+        os.mkdir(args.sub_folder)
+    except OSError:
+        u.print_warning("Removing previous calibration")
         try:
-            os.mkdir(args.sub_folder)
+            shutil.rmtree(args.sub_folder)
         except OSError:
-            u.print_warning("Removing previous calibration")
-            try:
-                shutil.rmtree(args.sub_folder)
-            except OSError:
-                raise ValueError("Cannot remove original calibration folder!")
+            raise ValueError("Cannot remove original calibration folder!")
 
-            os.mkdir(args.sub_folder)
+        os.mkdir(args.sub_folder)
 
-        os.chdir(args.sub_folder)
+    os.chdir(args.sub_folder)
 
-        # Connect to USRP server
-        if not u.Connect():
-            exit()
+    # Connect to USRP server
+    if not u.Connect():
+        exit()
 
-        # Set the variables for the scans
+    # Set the variables for the scans
 
-        # Should be retrived from server properties, communication scheme not implemented yet
-        DCARD_ANALOG_BW = 120e6
+    # Should be retrived from server properties, communication scheme not implemented yet
+    DCARD_ANALOG_BW = 120e6
 
-        # Should as well be setted with a bechmark_rate-like automatic program
-        SYSTEM_MAX_RATE = 200e6
+    # Should as well be setted with a bechmark_rate-like automatic program
+    SYSTEM_MAX_RATE = 200e6
 
-        # This could become a user argument
-        FILTER_LENGTH = 10000
+    # This could become a user argument
+    FILTER_LENGTH = 10000
 
-        # IF bandwith related. Again a sort of wizard could be implemented to determine the optimal value starting from resonator Q's.
-        MEASURE_TIME = 10
+    # IF bandwith related. Again a sort of wizard could be implemented to determine the optimal value starting from resonator Q's.
+    MEASURE_TIME = 10
 
-        # Derived from signal to noise ratio but not relevant in a client library calibration
-        ITERATIONS_NUMBER = 5
+    # Derived from signal to noise ratio but not relevant in a client library calibration
+    ITERATIONS_NUMBER = 5
 
-        # Set the central frequency for the scan TODO: hsoul also check range compatibiulity with Dcard information
-        CENTRAL_FREQUENCY = args.freq * 1e6
+    # Set the central frequency for the scan TODO: hsoul also check range compatibiulity with Dcard information
+    CENTRAL_FREQUENCY = args.freq * 1e6
 
-        # Semispan around central frequency in which the S21 is flat
-        FLAT_HALF_BW = 10e6
+    # Semispan around central frequency in which the S21 is flat
+    FLAT_HALF_BW = 10e6
 
-        # Semispan around center spike
-        SPIKE_HALF_BW = 100e3
+    # Semispan around center spike
+    SPIKE_HALF_BW = 100e3
 
-        # Set the line delay. This may also become part of the calibration (?)
+    # Set the line delay. This may also become part of the calibration (?)
 
-        delay_duration = 0.01
+    delay_duration = 0.01
 
-        try:
-            if u.LINE_DELAY[str(int(SYSTEM_MAX_RATE/1e6))]: pass
-        except KeyError:
+    try:
+        if u.LINE_DELAY[str(int(SYSTEM_MAX_RATE/1e6))]: pass
+    except KeyError:
 
-            print("Cannot find line delay. Measuring line delay before VNA:")
+        print("Cannot find line delay. Measuring line delay before VNA:")
 
-            delay_filename = u.measure_line_delay(
-                SYSTEM_MAX_RATE, CENTRAL_FREQUENCY, args.frontend,
-                USRP_num=0, tx_gain=0, rx_gain=0, output_filename=None, compensate = True,
-                duration = delay_duration
-            )
-
-            delay = u.analyze_line_delay(delay_filename, True)
-
-            u.write_delay_to_file(delay_filename, delay)
-
-            u.load_delay_from_file(delay_filename)
-
-
-        # Perform a VNA
-        vna_filename = u.Single_VNA(
-            start_f = -DCARD_ANALOG_BW/2,
-            last_f = DCARD_ANALOG_BW/2,
-            measure_t = MEASURE_TIME,
-            n_points = FILTER_LENGTH,
-            tx_gain = 0,
-            Rate=SYSTEM_MAX_RATE,
-            decimation=True,
-            RF=CENTRAL_FREQUENCY,
-            Front_end=args.frontend,
-            Device=None,
-            output_filename=None,
-            Multitone_compensation=None,
-            Iterations=ITERATIONS_NUMBER,
-            verbose=False
+        delay_filename = u.measure_line_delay(
+            SYSTEM_MAX_RATE, CENTRAL_FREQUENCY, args.frontend,
+            USRP_num=0, tx_gain=0, rx_gain=0, output_filename=None, compensate = True,
+            duration = delay_duration
         )
 
-        # Maybe one day this script will pass the file to the server and upload filters window
-        u.Disconnect()
+        delay = u.analyze_line_delay(delay_filename, True)
+
+        u.write_delay_to_file(delay_filename, delay)
+
+        u.load_delay_from_file(delay_filename)
 
 
-    else: #DEBUG!!!
-        os.chdir(args.sub_folder)
-        vna_filename = glob.glob("USRP_VNA*.h5")[0]
+    # Perform a VNA
+    vna_filename = u.Single_VNA(
+        start_f = -DCARD_ANALOG_BW/2,
+        last_f = DCARD_ANALOG_BW/2,
+        measure_t = MEASURE_TIME,
+        n_points = FILTER_LENGTH,
+        tx_gain = 0,
+        Rate=SYSTEM_MAX_RATE,
+        decimation=True,
+        RF=CENTRAL_FREQUENCY,
+        Front_end=args.frontend,
+        Device=None,
+        output_filename=None,
+        Multitone_compensation=None,
+        Iterations=ITERATIONS_NUMBER,
+        verbose=False
+    )
+
+    # Maybe one day this script will pass the file to the server and upload filters window
+    u.Disconnect()
+
+
+
 
     # Set the calibration library constant to 1. TODO: remove this when a full calibration system is in place
     u.change_calibration(1.)

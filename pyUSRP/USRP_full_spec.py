@@ -48,7 +48,7 @@ from .USRP_files import *
 from .USRP_delay import *
 
 def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
-              Device = None, delay = None, **kwargs):
+              Device = None, delay = None, subfolder = None, **kwargs):
     '''
     Perform a noise acquisition using fixed tone technique without demodulating the output result.
     It does not perform any dignal processing operation on the data.
@@ -63,6 +63,7 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
         - Front_end: the front end to be used on the USRP. default is A.
         - Device: the on-server device number to use. default is 0.
         - delay: delay between TX and RX processes. Default is taken from the INTERNAL_DELAY variable.
+        - subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
         - kwargs:
             * verbose: additional prints. Default is False.
             * push_queue: queue for post writing samples.
@@ -71,7 +72,17 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
         - filename of the measure file.
     '''
 
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY, USRP_power
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY, USRP_power
+
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure NODSP_tones")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
 
     try:
         verbose = kwargs['verbose']
@@ -198,7 +209,7 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
     Packets_to_file(
         parameters=noise_command,
         timeout=None,
-        filename=output_filename,
+        filename=save_path+output_filename,
         dpc_expected=expected_samples,
         meas_type="Raw_data",
         push_queue = push_queue,
@@ -209,7 +220,7 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
 
     return output_filename
 
-def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None, amplitudes = None, tx_gain=0, decimation = None, pf_average = 4, output_filename = None, delay = None, **kwargs):
+def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None, amplitudes = None, tx_gain=0, decimation = None, pf_average = 4, output_filename = None, delay = None, subfolder = None, **kwargs):
     '''
     Full spectrum version of the get_tones_noise() function.
 
@@ -223,14 +234,23 @@ def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None,
     :param pf_average: internal parameter of the pfb. default is 4.
     :param output_filename: output filename. Default is USRP_PFB_ + datetime.
     :param Front_end: the front_end to use for the acquisition.
-
+    :param subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
     Keyword arguments:
         ::param verbose print some debug line
 
     :return String containing the name of the saved file.
     '''
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY, USRP_power
-
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY, USRP_power
+    #- subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure full spec")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
     try:
         verbose = kwargs['verbose']
     except KeyError:
@@ -389,7 +409,7 @@ def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None,
     Packets_to_file(
         parameters=noise_command,
         timeout=None,
-        filename=output_filename,
+        filename=save_path+output_filename,
         dpc_expected=rx_number_of_samples,
         meas_type="PFB", **kwargs
     )

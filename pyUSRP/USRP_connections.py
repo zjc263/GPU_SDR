@@ -86,7 +86,7 @@ def clean_data_queue(USRP_data_queue=USRP_data_queue):
     return residual_packets
 
 
-def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, push_queue = None, trigger = None, **kwargs):
+def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, push_queue = None, trigger = None, meas_type = "Not specified", **kwargs):
     '''
     Consume the USRP_data_queue and writes an H5 file on disk.
 
@@ -96,6 +96,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
     :param dpc_expected: number of sample per channel expected. if given display a percentage progressbar.
     :param push_queue: external queue where to push data and metadata
     :param trigger: trigger class (see section on trigger function for deteails)
+    :param meas_type: type of measure. Examples "VNA", "Noise" ... help automated analysis
 
     :return filename or empty string if something went wrong
 
@@ -106,7 +107,17 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
     global dynamic_alloc_warning
     push_queue_warning = False
 
-    def write_ext_H5_packet(metadata, data, h5fp, index, trigger = None):
+    try:
+        test_ = kwargs['web_stats']
+        kwargs['web_stats']['progress'] = 0
+        kwargs['web_stats']['error'] = 0
+        web_kit_flag = True
+    except TypeError:
+        web_kit_flag = False
+    except KeyError:
+        web_kit_flag = False
+
+    def write_ext_H5_packet(metadata, data, h5fp, index, trigger = None, meas_type = "Not specified"):
         '''
         Write a single packet inside an already opened and formatted H5 file as an ordered dataset.
 
@@ -159,6 +170,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
             dataset.attrs.__setitem__("samples", data_end)
             if data_start == 0:
                 dataset.attrs.__setitem__("start_epoch", time.time())
+                h5fp['raw_data%d'%metadata['usrp_number']].attrs.__setitem__('meas_type',meas_type)
 
             if metadata['errors'] != 0:
                 print_warning("The server encounterd an error")
@@ -168,6 +180,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                     errors.resize(2, 0)
                 errors.resize(err_len + 1, 1)
                 errors[:, err_len] = [data_start, data_end]
+                if web_kit_flag: kwargs['web_stats']['error'] += 1
         except RuntimeError as err:
             print_error("A packet has not been written because of a problem: " + str(err))
 
@@ -212,8 +225,11 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
         Returns:
             - Pointer to rhe opened file in write mode.
         '''
-        filename = filename.split(".")[0]
-
+        #filename = filename.split(".")[0]
+        if len(filename) == 0:
+            err_msg = "Filename cannot be empty!"
+            print_error(err_msg)
+            raise ValueError(err_msg)
         try:
             h5file = h5py.File(filename + ".h5", 'r')
             h5file.close()
@@ -240,7 +256,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                 else:
                     count += 1
 
-    global USRP_data_queue, END_OF_MEASURE, EOM_cond, CLIENT_STATUS
+    global USRP_data_queue, EOM_cond, CLIENT_STATUS
     more_sample_than_expected_WARNING = True
     accumulated_timeout = 0
     sleep_time = 0.1
@@ -264,15 +280,16 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
         if parameters.parameters[fr_counter] != 'OFF': spc_acc[fr_counter] = 0
 
     CLIENT_STATUS["measure_running_now"] = True
-    if dpc_expected is not None:
-        widgets = [progressbar.Percentage(), progressbar.Bar()]
-        bar = progressbar.ProgressBar(widgets=widgets, max_value=dpc_expected)
-    else:
-        widgets = ['', progressbar.Counter('Samples per channel received: %(value)05d'),
-               ' Client time elapsed: ', progressbar.Timer(), '']
-        bar = progressbar.ProgressBar(widgets=widgets)
+    if not web_kit_flag:
+        if dpc_expected is not None:
+            widgets = [progressbar.Percentage(), progressbar.Bar()]
+            bar = progressbar.ProgressBar(widgets=widgets, max_value=dpc_expected)
+        else:
+            widgets = ['', progressbar.Counter('Samples per channel received: %(value)05d'),
+                   ' Client time elapsed: ', progressbar.Timer(), '']
+            bar = progressbar.ProgressBar(widgets=widgets)
     data_warning = True
-    bar.start()
+    if not web_kit_flag: bar.start()
     while (not acquisition_end_flag):
         try:
             meta_data, data = USRP_data_queue.get(timeout=0.1)
@@ -284,7 +301,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                 # write_single_H5_packet(meta_data, data, H5_file_pointer)
                 if trigger is not None:
                     data, meta_data = trigger.trigger(data, meta_data)
-                write_ext_H5_packet(meta_data, data, H5_file_pointer, spc_acc[meta_data['front_end_code']], trigger = trigger)
+                write_ext_H5_packet(meta_data, data, H5_file_pointer, spc_acc[meta_data['front_end_code']], trigger = trigger, meas_type = meas_type)
                 if push_queue is not None:
                     if not push_queue_warning:
                         try:
@@ -294,9 +311,12 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                             push_queue_warning = True
 
                 spc_acc[meta_data['front_end_code']] += meta_data['length'] / meta_data['channels']
+                if web_kit_flag:
+                    if dpc_expected is not None:
+                        kwargs['web_stats']['progress'] = spc_acc[meta_data['front_end_code']]/float(dpc_expected)
                 try:
                     #print "max expected: %d total received %d"%(dpc_expected, spc_acc)
-                    bar.update(spc_acc[meta_data['front_end_code']])
+                    if not web_kit_flag: bar.update(spc_acc[meta_data['front_end_code']])
                 except:
                     if data_warning:
                         if dpc_expected is not None:
@@ -320,22 +340,23 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
             CLIENT_STATUS["keyboard_disconnect"] = False
 
         try:
-            bar.update(spc_acc[meta_data['front_end_code']])
+            if not web_kit_flag: bar.update(spc_acc[meta_data['front_end_code']])
         except NameError:
             pass
         except:
             if (more_sample_than_expected_WARNING): print_debug("Sync RX received more data than expected.")
 
         EOM_cond.acquire()
-        if END_OF_MEASURE:
+        if CLIENT_STATUS["END_OF_MEASURE"]:
             timeout = .5
             legit_off = True
         EOM_cond.release()
 
-    bar.finish()
+
+    if not web_kit_flag: bar.finish()
 
     EOM_cond.acquire()
-    END_OF_MEASURE = False
+    CLIENT_STATUS["END_OF_MEASURE"] = False
     EOM_cond.release()
 
     if clean_data_queue() != 0:
@@ -344,16 +365,17 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
     H5_file_pointer.close()
     print("\033[7;1;32mH5 file closed succesfully.\033[0m")
     CLIENT_STATUS["measure_running_now"] = False
+    if web_kit_flag:
+        kwargs['web_stats']['result'] = filename
     return filename
 
-def USRP_socket_bind(USRP_socket, server_address, timeout):
+def USRP_socket_bind(USRP_socket, server_address):
     """
     Binds a soket object with a server address. Trys untill timeout seconds elaplsed.
 
     Args:
         - USRP_socket: socket object to bind with the address tuple.
         - server_address: a tuple containing a string with the ip address and a int representing the port.
-        - timeout: timeout in seconds to wait for connection.
 
     Known bugs:
         - On some linux distribution once on two attempts the connection is denied by software. On third attempt however it connects.
@@ -371,25 +393,22 @@ def USRP_socket_bind(USRP_socket, server_address, timeout):
     Notes:
         - This method will only connect one soket to the USRP/GPU server, not data and async messages. This function is intended to be used in higher level functions contained in this library. The correct methot for connecting to USRP/GPU server is the use of USERP_Connect(timeout) function.
     """
-    if timeout < 0:
-        print_warning("No GPU server connection established after timeout.")
-        return False
-    else:
-        try:
-            USRP_socket.connect(server_address)
-            return True
-        except socket.error as msg:
-            print(("Socket binding to %s, report: "%str(server_address) + str(msg) + ", " + "Retrying..."))
-            return False
-            '''
-            USRP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            USRP_socket.settimeout(1)
-            USRP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            time.sleep(1)
-            timeout = timeout - 1
-            return USRP_socket_bind(USRP_socket, server_address, timeout)
-            '''
+    try:
+        USRP_socket.connect(server_address)
+        return True
+    except socket.error as msg:
+        print(("Socket binding to %s, report: "%str(server_address) + str(msg) + ", " + "Retrying..."))
+        return False
+        '''
+        USRP_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        USRP_socket.settimeout(1)
+        USRP_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        time.sleep(1)
+        timeout = timeout - 1
+        return USRP_socket_bind(USRP_socket, server_address, timeout)
+        '''
 
 def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
     '''
@@ -449,7 +468,7 @@ def Decode_Async_payload(message):
     '''
     Decode asynchronous payloads coming from the GPU server
     '''
-    global ERROR_STATUS, END_OF_MEASURE, REMOTE_FILENAME, EOM_cond
+    global ERROR_STATUS, REMOTE_FILENAME, EOM_cond
 
     try:
         res = json.loads(message)
@@ -468,7 +487,7 @@ def Decode_Async_payload(message):
         if res['payload'].find("EOM") != -1:
             print_debug("Async message from server: Measure finished")
             EOM_cond.acquire()
-            END_OF_MEASURE = True
+            CLIENT_STATUS["END_OF_MEASURE"] = True
             EOM_cond.release()
         elif res['payload'].find("filename") != -1:
             REMOTE_FILENAME = res['payload'].split("\"")[1]
@@ -479,7 +498,7 @@ def Decode_Async_payload(message):
         print_warning("Server detected an error.")
         ERROR_STATUS = True
         EOM_cond.acquire()
-        END_OF_MEASURE = True
+        CLIENT_STATUS["END_OF_MEASURE"] = True
         EOM_cond.release()
 
 
@@ -563,15 +582,15 @@ def Async_thread(USRP_server_address = None, USRP_server_address_port = None):
     Async_condition.acquire()
     # if(not USRP_socket_bind(USRP_socket, USRP_server_address, 5)):
     time_elapsed = 0
-    timeout = 10  # sys.maxint
+    timeout = 4  # sys.maxint
     data_timeout_wait = 0.01
     connected = False
     while time_elapsed < timeout and (not connected):
         try:
             print_debug("Async command thread:")
-            connected = USRP_socket_bind(USRP_socket, (USRP_server_address, USRP_server_address_port), 7)
-            time.sleep(1)
-            time_elapsed += 1
+            connected = USRP_socket_bind(USRP_socket, (USRP_server_address, USRP_server_address_port))
+            time.sleep(0.7)
+            time_elapsed += 0.7
         except KeyboardInterrupt:
             print_warning("Keyboard interrupt aborting connection...")
             break
@@ -579,13 +598,13 @@ def Async_thread(USRP_server_address = None, USRP_server_address_port = None):
     if not connected:
         internal_status = False
         Async_status = False
-
         print_warning("Async data connection failed")
-        Async_condition.release()
+
     else:
         Async_status = True
         print_debug("Async data connected")
-        Async_condition.release()
+
+    Async_condition.release()
     # acquisition loop
     while (internal_status):
 
@@ -662,9 +681,11 @@ def Async_thread(USRP_server_address = None, USRP_server_address_port = None):
                     Async_status = False
                     Async_condition.release()
                     print_warning("Async connection is down: " + msg)
-
-    USRP_socket.shutdown(1)
-    USRP_socket.close()
+    try:
+        USRP_socket.shutdown(1)
+        USRP_socket.close()
+    except OSError:
+        print_warning("Closing connection on faulty socket. Normal if the GPU server was not found")
     del USRP_socket
     gc.collect()
 
@@ -851,15 +872,15 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue, USRP_server_addre
 
     # if(not USRP_socket_bind(USRP_data_socket, USRP_server_address_data, 7)):
     time_elapsed = 0
-    timeout = 10  # sys.maxint
+    timeout = 4  # sys.maxint
     connected = False
 
     # try:
     while time_elapsed < timeout and (not connected):
         print_debug("RX sync data thread:")
-        connected = USRP_socket_bind(USRP_data_socket, (USRP_server_address_data, USRP_server_address_data_port), 7)
-        time.sleep(1)
-        time_elapsed += 1
+        connected = USRP_socket_bind(USRP_data_socket, (USRP_server_address_data, USRP_server_address_data_port))
+        time.sleep(0.59)
+        time_elapsed += 0.59
 
     if not connected:
         internal_status = False

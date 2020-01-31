@@ -53,7 +53,7 @@ from .USRP_data_analysis import *
 #: This variable contains total line delay at given frequencies.
 LINE_DELAY = {}
 
-def measure_line_delay(rate, LO_freq, RF_frontend, USRP_num = 0, tx_gain = 0, rx_gain = 0, output_filename = None, compensate = False, duration = 0.01, **kwargs):
+def measure_line_delay(rate, LO_freq, RF_frontend, USRP_num = 0, tx_gain = 0, rx_gain = 0, output_filename = None, compensate = False, duration = 0.01, subfolder = None, **kwargs):
     '''
     Measure the line delay around a given frequency. Save the data to file.
     :param rate: USRP sampling rate in Sps: changing the sampling rate affect how the stock firmware process data.
@@ -66,11 +66,22 @@ def measure_line_delay(rate, LO_freq, RF_frontend, USRP_num = 0, tx_gain = 0, rx
     :param kwargs: keyword arguments will be used to store additional attributes in the HDF5 file in the raw data group.
     :param compensate: if True the initial delay is sourced from the internal variable LINE_DELAY.
     :parm duration: duration of the measurement.
-    :return A string containing the filename where the data have been saved.
+    :param subfolder: subfolder string where to create the file. The path MUST exist or the measure will not happen. Default is None: write in the current folder
 
+    :return A string containing the filename where the data have been saved.
     '''
 
-    global USRP_data_queue, REMOTE_FILENAME, END_OF_MEASURE, LINE_DELAY
+    global USRP_data_queue, REMOTE_FILENAME, LINE_DELAY
+
+    # Verify that the subfolder exist if any is given.
+    if subfolder is not None:
+        if not os.path.isdir(subfolder):
+            print_error("Subfolder %s does not exist, cannot measure delay")
+            return ""
+        else:
+            save_path = subfolder.strip("/")+"/" # May cause issues on windows
+    else:
+        save_path = ''
 
     print_debug("Measuring line delay...")
 
@@ -187,7 +198,7 @@ def measure_line_delay(rate, LO_freq, RF_frontend, USRP_num = 0, tx_gain = 0, rx
     Packets_to_file(
         parameters=delay_command,
         timeout=None,
-        filename=output_filename,
+        filename=save_path+output_filename,
         dpc_expected=number_of_samples/gpu_decim,
         meas_type = "delay", **kwargs
     )

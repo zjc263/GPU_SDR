@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import queue
-from queue import Empty
+import Queue
+from Queue import Empty
 from threading import Thread,Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -42,15 +42,14 @@ import matplotlib.patches as mpatches
 import progressbar
 
 #import submodules
-from .USRP_low_level import *
-from .USRP_files import *
+from USRP_low_level import *
+from USRP_files import *
 
 
 def linear_phase(phase):
     '''
     Unwrap the pgase and subtract linear and constrant offset.
     '''
-    print_warning("Unwrapping phase")
     phase = np.unwrap(phase)
     x = np.arange(len(phase))
     m, q = np.polyfit(x, phase, 1)

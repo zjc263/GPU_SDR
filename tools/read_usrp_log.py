@@ -6,8 +6,6 @@ To best visualize the result, an internet connection is required as the html fil
 import glob,sys,os
 import argparse
 import numpy
-import plotly.figure_factory as ff
-import plotly
 from yattag import Doc
 
 def severity_color(severity_string):
@@ -77,17 +75,6 @@ table.table-hover thead {
 
 
 '''
-def reduce_opacity(rgb_color_string, opacity):
-	'''
-	Function to reduce the opacity for overlapping tasks.
-	Written to compensate plotly lack of features.
-	'''
-	try:
-		new_color = 'rgba('+(rgb_color_string.split(')'))[0].split('(')[1]+', ' + str(opacity) + ')'
-	except AttributeError:
-		new_color = rgb_color_string
-	return new_color
-
 
 if __name__ == "__main__":
 
@@ -124,54 +111,8 @@ if __name__ == "__main__":
 	threads_unique = set(threads)
 	time = list(zip(*full_table)[0])
 	levels = list(zip(*full_table)[2])
+	messages = list(zip(*full_table)[3])
 
-	events = list(zip(*full_table)[3])
-	events_type = [ev.split(':')[0] for ev in events]
-	events_id = [ev.split(':')[1] for ev in events]
-
-	messages = list(zip(*full_table)[4])
-
-	# Build the Gantt chart
-	# Not the most efficient way to do it, I know...
-	print("Building Gantt chart...")
-	gantt_data = []
-	for i in range(len(time)):
-		if events_type[i] == "EVENT_START":
-			start_time = time[i]
-			job_id = threads[i]
-			resource = levels[i]
-			task = messages[i]
-			# Look for the end
-			end_time = max(time)
-			for j in range(len(time)):
-				if (events_id[j] == events_id[i]) and (i!=j):
-					end_time = time[j]
-
-			gantt_data.append(
-				{
-					'Task':job_id,
-					'Start':start_time,
-					'Finish':end_time,
-					'Resource':resource,
-				}
-			)
-	print gantt_data
-	colors = dict(
-		debug = 'rgb(46, 137, 205)',
-		info = 'rgb(114, 44, 121)',
-		warning = 'rgb(198, 47, 105)',
-		error = 'rgb(58, 149, 136)'
-	)
-	#basically, you have to build your own chart... this is sooo bugged
-	fig = ff.create_gantt(gantt_data, colors=colors, group_tasks=True, index_col='Resource', title='Server log',show_colorbar=True)#, bar_width=0.8, showgrid_x=True, showgrid_y=True)
-
-	for s in fig.data:
-		print s
-		s.fillcolor = reduce_opacity(s.fillcolor, 0.1)
-
-	plotly.offline.plot(fig, filename="_plot_" + target_file+".html", auto_open=False)
-
-	# Write the nice html list
 	log_data = dict(
 		Time = time,
 		Levels = levels
@@ -241,3 +182,6 @@ if __name__ == "__main__":
 	f = open(target_file+".html", "w")
 	f.write(doc.getvalue())
 	print (target_file+".html has been generated!")
+
+
+

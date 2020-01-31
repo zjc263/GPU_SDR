@@ -8,7 +8,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 
 import argparse
 
@@ -65,8 +65,6 @@ if __name__ == "__main__":
             tones = np.asarray(tones)*1e6
         except ValueError:
             u.print_error("Cannot convert tone arfreqgument.")
-        except TypeError:
-            tones = []
 
         rf_freq = args.freq*1e6
 

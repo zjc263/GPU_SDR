@@ -19,14 +19,14 @@ Sync_server::Sync_server(rx_queue* init_stream_queue, preallocator<float2>* init
 
 //update pointers in case of memory swapping in TXRX class
 void Sync_server::update_pointers(rx_queue* init_stream_queue, preallocator<float2>* init_memory){
-    BOOST_LOG_TRIVIAL(info) << "EVENT:50; Updating sync server memory pointers";
+    BOOST_LOG_TRIVIAL(info) << "Updating sync server memory pointers";
     memory = init_memory;
     stream_queue = init_stream_queue;
 }
 
 void Sync_server::connect(int init_tcp_port){
 
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:51; Connecting sync protocol...";
+    BOOST_LOG_TRIVIAL(info) << "Connecting sync protocol...";
     boost::asio::socket_base::reuse_address ciao(true);
     if(verbose)std::cout<<"Waiting for TCP data connection on port: "<< init_tcp_port<<" ..."<<std::endl;
     //std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -37,24 +37,24 @@ void Sync_server::connect(int init_tcp_port){
     acceptor->set_option(ciao);
     socket = new tcp::socket(*io_service);
     acceptor->accept(*socket);
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:51; Connected";
+    BOOST_LOG_TRIVIAL(info) << "Connected";
     if(verbose)std::cout<<"TCP data connection status update: Connected."<< std::endl;
     NET_IS_CONNECTED = true;
     NEED_RECONNECT = false;
     if(not virtual_pinger_online){
-        BOOST_LOG_TRIVIAL(info) << "EVENT:52; Launching virtual pinger...";
+        BOOST_LOG_TRIVIAL(info) << "Launching virtual pinger...";
         virtual_pinger_thread = new boost::thread(boost::bind(&Sync_server::virtual_pinger,this));
     }else{
-        BOOST_LOG_TRIVIAL(warning) << "EVENT:53; No virtual pinger will be launched";
+        BOOST_LOG_TRIVIAL(warning) << "No virtual pinger will be launched";
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT:54; Sync protocol connected";
+    BOOST_LOG_TRIVIAL(info) << "Sync protocol connected";
 }
 
 void Sync_server::reconnect(int init_tcp_port){
-    //BOOST_LOG_TRIVIAL(debug) << "EVENT:-55; debug message from Sync_server::reconnect";
+    BOOST_LOG_TRIVIAL(debug) << "debug message from Sync_server::reconnect";
     set_this_thread_name("TCP streamer"); // Just for clarity in the logs.
     // This function is called as a thread so it's not blocking the configuration of other stuff,
-    BOOST_LOG_TRIVIAL(debug) << "EVENT_START:55; Sync protocol reconnect() fcn called (temporary thread)";
+    BOOST_LOG_TRIVIAL(debug) << "Sync protocol reconnect() fcn called (temporary thread)";
     //std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     stop(true);
     //delete io_service;
@@ -64,21 +64,21 @@ void Sync_server::reconnect(int init_tcp_port){
     delete acceptor;
     delete socket;
     connect(init_tcp_port);
-    BOOST_LOG_TRIVIAL(debug) << "EVENT_END:55;Reconnect() joined/terminated";
+    BOOST_LOG_TRIVIAL(debug) << "Reconnect() joined/terminated";
 }
 
 bool Sync_server::start(param* current_settings){
     force_close = false;
     if (NEED_RECONNECT){
         print_warning("Before start streaming, data soket has to be reconnected.");
-        BOOST_LOG_TRIVIAL(error) << "EVENT:56; Sync protocol started with NEED_RECONNECT: "<< NEED_RECONNECT;
+        BOOST_LOG_TRIVIAL(error) << "Sync protocol started with NEED_RECONNECT: "<< NEED_RECONNECT;
         while(NEED_RECONNECT)std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     if (NET_IS_CONNECTED){
-        BOOST_LOG_TRIVIAL(info) << "EVENT:57; Starting TCP worker...";
+        BOOST_LOG_TRIVIAL(info) << "Starting TCP worker...";
         TCP_worker = new boost::thread(boost::bind(&Sync_server::tcp_streamer,this, current_settings));
     }else{
-        BOOST_LOG_TRIVIAL(warning) << "EVENT:58; Cannot start sync protocol if server is not connected. NET_IS_CONNECTED state "<<NET_IS_CONNECTED ;
+        BOOST_LOG_TRIVIAL(warning) << "Cannot start sync protocol if server is not connected. NET_IS_CONNECTED state "<<NET_IS_CONNECTED ;
         print_error("Cannot stream data without a connected socket!");
         return false;
     }
@@ -88,7 +88,7 @@ bool Sync_server::start(param* current_settings){
 //gracefully stop streaming or check streaming status
 bool Sync_server::stop(bool force){
     if(NET_IS_CONNECTED and force){
-        BOOST_LOG_TRIVIAL(warning) << "EVENT:59; forcing stop of sync data thread";
+        BOOST_LOG_TRIVIAL(warning) << "forcing stop of sync data thread";
         force_close = true;
         TCP_worker->interrupt();
         TCP_worker->join();
@@ -106,7 +106,7 @@ bool Sync_server::stop(bool force){
         return NET_IS_STREAMING;
     }
     print_warning("Chekcing streaming status on disconnected socket");
-    BOOST_LOG_TRIVIAL(warning) << "EVENT:60; Chekcing sync data protocol status on disconnected socket";
+    BOOST_LOG_TRIVIAL(warning) << "Chekcing sync data protocol status on disconnected socket";
     return false;
 }
 
@@ -118,7 +118,7 @@ bool Sync_server::check_status(){
 // Also checks for remaining packets in the queue and trash them.
 // NOTE: does not close the preallocator.
 int Sync_server::clear_stream_queue( rx_queue *q, preallocator<float2>* memory){
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:61; Clearing stream queue of Sync data protocol";
+    BOOST_LOG_TRIVIAL(info) << "Clearing stream queue of Sync data protocol";
     int i = 0;
     RX_wrapper trash_packet;
     trash_packet.buffer = nullptr;
@@ -127,27 +127,26 @@ int Sync_server::clear_stream_queue( rx_queue *q, preallocator<float2>* memory){
         q->pop(trash_packet);
         memory->trash(trash_packet.buffer);
     }
-    if (i>0){BOOST_LOG_TRIVIAL(warning) << "EVENT:62; clearing sync data protocol queue discarded "<< i << " packets.";}
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:61; stream queue of Sync data protocol clean";
+    if (i>0){BOOST_LOG_TRIVIAL(warning) << "clearing sync data protocol queue discarded "<< i << " packets.";}
     return i;
 }
 
 //periodically check the status of the async thread to determine if there is needing to reconnect
 void Sync_server::virtual_pinger(){
     set_this_thread_name("Virtual pinger");
-    BOOST_LOG_TRIVIAL(debug) << "EVENT_START:63; Protocol synchronization thread started";
+    BOOST_LOG_TRIVIAL(debug) << "Protocol synchronization thread started";
     bool active = true;
     virtual_pinger_online = true;
     while(active){
         std::this_thread::sleep_for(std::chrono::milliseconds(700));
         try{
             if(reconnect_data){
-                BOOST_LOG_TRIVIAL(info) << "EVENT:64; reconnect_data state is: "<< reconnect_data;
+                BOOST_LOG_TRIVIAL(info) << "reconnect_data state is: "<< reconnect_data;
                 std::this_thread::sleep_for(std::chrono::milliseconds(30));
                 reconnect_data = false; //twice to avoid data race with async
                 NEED_RECONNECT = true;
                 NET_IS_CONNECTED = false;
-                BOOST_LOG_TRIVIAL(info) << "EVENT:65;launching reconnect now";
+                BOOST_LOG_TRIVIAL(info) << "launching reconnect now";
                 virtual_pinger_online = false;
                 reconnect(TCP_SYNC_PORT);
                 reconnect_data = false;
@@ -158,7 +157,7 @@ void Sync_server::virtual_pinger(){
         }
     }
 
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:63; Joined";
+    BOOST_LOG_TRIVIAL(info) << "Joined";
 }
 //size_t ilen = 0;
 //This function serialize a net_buffer struct into a boost buffer.
@@ -196,7 +195,7 @@ void Sync_server::format_net_buffer(RX_wrapper input_packet, char* __restrict__ 
 void Sync_server::tcp_streamer(param* current_settings){
 
     set_this_thread_name("TCP streamer");
-    BOOST_LOG_TRIVIAL(debug) << "EVENT_START:67; Thread started";
+    BOOST_LOG_TRIVIAL(debug) << "Thread started";
 
     //Packet to be serialized and sent
     RX_wrapper incoming_packet;
@@ -222,7 +221,7 @@ void Sync_server::tcp_streamer(param* current_settings){
       print_error(ss.str());
       NEED_RECONNECT = true;
       NET_IS_CONNECTED = false;
-      BOOST_LOG_TRIVIAL(error) << "EVENT_START:68; Maximum buffer length is <= 0 in the TCP streamer. This is not allowed";
+      BOOST_LOG_TRIVIAL(error) << "Maximum buffer length is <= 0 in the TCP streamer. This is not allowed";
       return;
     }
 
@@ -234,7 +233,7 @@ void Sync_server::tcp_streamer(param* current_settings){
 
     NET_IS_STREAMING = true;
 
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:69; main loop started";
+    BOOST_LOG_TRIVIAL(info) << "main loop started";
     while(active or finishing){
         if(reconnect_data){
             active = false;
@@ -271,7 +270,7 @@ void Sync_server::tcp_streamer(param* current_settings){
                         print_error(ss.str());
                         NEED_RECONNECT = true;
                         NET_IS_CONNECTED = false;
-                        BOOST_LOG_TRIVIAL(warning) << "EVENT:70; Something's wrong with the packet terminating transmission";
+                        BOOST_LOG_TRIVIAL(warning) << "Something's wrong with the packet terminating transmission";
                         active = false;
                     }
                 }
@@ -290,21 +289,21 @@ void Sync_server::tcp_streamer(param* current_settings){
             if(not active)finishing = not stream_queue->empty();
 
         }catch(boost::thread_interrupted &){
-            BOOST_LOG_TRIVIAL(info) << "EVENT:71; Interrupt called to stop thread";
+            BOOST_LOG_TRIVIAL(info) << "Interrupt called to stop thread";
             active = false;
             if (not force_close){
                 //finishing = not stream_queue->empty();
                 ;
             }else{
                 finishing = false;
-                BOOST_LOG_TRIVIAL(info) << "EVENT:72; finishing transmission";
+                BOOST_LOG_TRIVIAL(info) << "finishing transmission";
             }
         }
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:69; main loop ended";
+
     free(fullData);
     NET_IS_STREAMING = false;
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:67; Thread joining";
+    BOOST_LOG_TRIVIAL(info) << "Thread joining";
     pLogSink->flush(); //If the sink is not flushed something bad happens when the thread joins
 }
 
@@ -372,7 +371,7 @@ bool Async_server::connected(){
 }
 
 Async_server::Async_server(bool init_verbose){
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:74; Initializing async protocol thread";
+    BOOST_LOG_TRIVIAL(info) << "Initializing async protocol thread";
     reconnect_async = false;
     verbose = init_verbose;
 
@@ -387,7 +386,6 @@ Async_server::Async_server(bool init_verbose){
     //start the server
     TCP_async_worker_RX = new boost::thread(boost::bind(&Async_server::rx_async,this,command_queue));
     TCP_async_worker_TX = new boost::thread(boost::bind(&Async_server::tx_async,this,response_queue));
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:74; Async protocol thread Initialized";
 
 
 }
@@ -399,19 +397,19 @@ bool Async_server::chk_new_command(){
 
 //blocks until it pushes the pointer in the async transmit queue
 void Async_server::send_async(std::string* message){
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:75; Sending message to client application";
+    BOOST_LOG_TRIVIAL(info) << "Sending message to client application";
     if(ASYNC_SERVER_CONNECTED){
         while(not response_queue->push(message))std::this_thread::sleep_for(std::chrono::microseconds(25));
     }else{
         print_warning("Cannot sent async message, interface disconnected.");
-        BOOST_LOG_TRIVIAL(warning) << "EVENT:76; Cannot sent async message, interface disconnected";
+        BOOST_LOG_TRIVIAL(warning) << "Cannot sent async message, interface disconnected";
         delete message;
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:75; Message sent to client application";
 };
 
 //return true if there is a message and points to it
 bool Async_server::recv_async(usrp_param &my_parameter, bool blocking){
+    //BOOST_LOG_TRIVIAL(warning) << "Decoding async message";
     if(not ASYNC_SERVER_CONNECTED){
         print_warning("Async server is not connected, cannot receive messages.");
         return false;
@@ -422,7 +420,9 @@ bool Async_server::recv_async(usrp_param &my_parameter, bool blocking){
         while(not command_queue->pop(message_string)) std::this_thread::sleep_for(std::chrono::milliseconds(50));
         res = string2param(*message_string, my_parameter);
         // Get rid of the memory associated with the string.
+        //BOOST_LOG_TRIVIAL(warning) << "(blocking) about to delete current command string";
         delete message_string;
+        //BOOST_LOG_TRIVIAL(warning) << "(blocking) string deleted";
 
     }else{
 
@@ -430,7 +430,9 @@ bool Async_server::recv_async(usrp_param &my_parameter, bool blocking){
             //interpreter goes here
             res = string2param(*message_string, my_parameter);
             // Get rid of the memory associated with the string.
+            //BOOST_LOG_TRIVIAL(warning) << "(non-blocking) about to delete current command string";
             delete message_string;
+            //BOOST_LOG_TRIVIAL(warning) << "(non-blocking) string deleted";
         }
     }
 
@@ -441,7 +443,7 @@ bool Async_server::recv_async(usrp_param &my_parameter, bool blocking){
 
 //connect to the async server
 void Async_server::connect(int init_tcp_port){
-        BOOST_LOG_TRIVIAL(info) << "EVENT_START:77; Connecting async service";
+        BOOST_LOG_TRIVIAL(info) << "Connecting async service";
         reconnect_async = false;
         if(verbose)std::cout<<"Waiting for TCP async data connection on port: "<< init_tcp_port<<" ..."<<std::endl;;
         boost::asio::socket_base::reuse_address ciao(true);
@@ -457,11 +459,11 @@ void Async_server::connect(int init_tcp_port){
         //socket->set_option(ciao);
         if(verbose)std::cout<<"Async TCP connection update: Connected."<< std::endl;
         ASYNC_SERVER_CONNECTED = true;
-        BOOST_LOG_TRIVIAL(info) << "EVENT_END:77; State ASYNC_SERVER_CONNECTED is: "<< ASYNC_SERVER_CONNECTED;
+        BOOST_LOG_TRIVIAL(info) << "State ASYNC_SERVER_CONNECTED is: "<< ASYNC_SERVER_CONNECTED;
     }
 
 void Async_server::Disconnect(){
-    BOOST_LOG_TRIVIAL(info) << "EVENT:78; Disconnecting async service";
+    BOOST_LOG_TRIVIAL(info) << "Disconnecting async service";
     //delete io_service;
     if(io_service != nullptr){
       io_service->reset();
@@ -472,7 +474,7 @@ void Async_server::Disconnect(){
 }
 
 void Async_server::Reconnect(){
-    BOOST_LOG_TRIVIAL(debug) << "EVENT:79; Reconnecting async service";
+    BOOST_LOG_TRIVIAL(debug) << "Reconnecting async service";
     reconnect_data = true;
     reconnect_async = false;
     ASYNC_SERVER_CONNECTED = false;
@@ -501,7 +503,7 @@ void Async_server::format_header(char* header, std::string* message){
 
 void Async_server::rx_async(async_queue* link_command_queue){
     set_this_thread_name("Async TCP RX");
-    BOOST_LOG_TRIVIAL(debug) << "EVENT_START:80; Thread started";
+    BOOST_LOG_TRIVIAL(debug) << "Thread started";
     //preallocate space for the fixed header
     char* header_buffer;
     header_buffer = (char*)malloc(2*sizeof(int));
@@ -512,8 +514,8 @@ void Async_server::rx_async(async_queue* link_command_queue){
 
     boost::system::error_code error;
 
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:81; main loop started";
     while(active){
+        BOOST_LOG_TRIVIAL(info) << "main loop started";
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         try{
             boost::this_thread::interruption_point();
@@ -545,14 +547,16 @@ void Async_server::rx_async(async_queue* link_command_queue){
                 );
 
                 if (error == boost::system::errc::success){
-                    BOOST_LOG_TRIVIAL(info) << "EVENT:82; Succesfully received info from client application";
+                    BOOST_LOG_TRIVIAL(info) << "Succesfully received info from client application";
                     message_string = new std::string(message_buffer,size);
 
                     // The buffer has been received, push the message in the queue
                     while(not link_command_queue->push(message_string))std::this_thread::sleep_for(std::chrono::microseconds(25));
+                    BOOST_LOG_TRIVIAL(info) << "Message pushed in command queue";
+
 
                 }else{
-                    BOOST_LOG_TRIVIAL(warning) << "EVENT:83; Error received in boost::asio::read";
+                    BOOST_LOG_TRIVIAL(warning) << "Error received in boost::asio::read";
                     std::stringstream ss;
                     ss<<"Async RX server side encountered a payload problem: "<<error.message()<<std::endl;
                     reconnect_data = true;
@@ -588,16 +592,12 @@ void Async_server::rx_async(async_queue* link_command_queue){
             active = false;
         }
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:81; main loop terminated";
+
     free(header_buffer);
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:80; Thread joined";
 }
 
 void Async_server::tx_async(async_queue* response_queue_link){
-    std::stringstream thread_name;
-    thread_name << "Async server handler";
-    set_this_thread_name(thread_name.str());
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:85; Thread started";
+
     bool active = true;
 
     std::string* message;
@@ -607,7 +607,7 @@ void Async_server::tx_async(async_queue* response_queue_link){
 
     //some error handling
     boost::system::error_code ignored_error;
-    BOOST_LOG_TRIVIAL(info) << "EVENT_START:86; Main loop started";
+
     while(active){
 
         try{
@@ -630,7 +630,6 @@ void Async_server::tx_async(async_queue* response_queue_link){
                     std::stringstream ss;
                     ss<<"Async tx error: "<<ignored_error.message()<<std::endl;
                     print_warning(ss.str());
-                    BOOST_LOG_TRIVIAL(error) << "EVENT:89; Async tx error";
                 }
 
                 //release the message memory
@@ -645,8 +644,6 @@ void Async_server::tx_async(async_queue* response_queue_link){
 
         if(not ASYNC_SERVER_CONNECTED)active = false;
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:86; Main loop ended";
 
     free(header);
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:85; Thread joined";
 }

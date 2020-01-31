@@ -50,6 +50,9 @@ USRP_power = -6.00
 # USRP rates that does not cause additional CIC filtering
 USRP_accepted_rates = [int(1e6), int(2e6), int(5e6), int(1e7), int(2e7), int(5e7), int(1e8), int(2e8)]
 
+# USRP calibration for float units in Vpp
+USRP_calibration = 0.317
+
 # Colors used for plotting
 COLORS = ['black', 'red', 'green', 'blue', 'orange', 'violet', 'brown', 'purple']
 
@@ -113,21 +116,6 @@ CLIENT_STATUS["keyboard_disconnect"] = False
 CLIENT_STATUS["keyboard_disconnect_attemp"] = 0
 CLIENT_STATUS["measure_running_now"] = False
 
-
-
-# USRP calibration for float units in Vpp
-CURRENT_CALIBRATION = manager.dict()
-CURRENT_CALIBRATION['tmp_calib'] = 2.249889
-#USRP_calibration = 0.317
-
-def change_calibration(new_calibration):
-    '''
-    Temporary patch to manage the calibration of a single card.
-    This function will be removed shortly.
-    '''
-    global CURRENT_CALIBRATION
-    CURRENT_CALIBRATION['tmp_calib'] = new_calibration
-
 # threading condition variables for controlling Sync RX thread activity
 Sync_RX_condition = manager.Condition()
 
@@ -178,7 +166,7 @@ def print_warning(message):
     :param message: the warning message.
     :return: None
     '''
-    print("\033[40;33mWARNING\033[0m: " + str(message) + ".")
+    print "\033[40;33mWARNING\033[0m: " + str(message) + "."
 
 
 def print_error(message):
@@ -187,7 +175,7 @@ def print_error(message):
     :param message: the error message.
     :return: None
     '''
-    print("\033[1;31mERROR\033[0m: " + str(message) + ".")
+    print "\033[1;31mERROR\033[0m: " + str(message) + "."
 
 
 def print_debug(message):
@@ -196,7 +184,7 @@ def print_debug(message):
     :param message: the debug message.
     :return: None
     '''
-    print("\033[3;2;37m" + str(message) + "\033[0m")
+    print "\033[3;2;37m" + str(message) + "\033[0m"
 
 
 def print_line(msg):
@@ -219,7 +207,7 @@ def get_timestamp():
     return str(datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
 
 
-def linear2db(vp):
+def vrms2dbm(vp):
     """
     Converts a scalar or a numpy array from volts RMS to dbm assuming there is an impedence of 50 Ohm
 
@@ -230,11 +218,10 @@ def linear2db(vp):
         - scalar or numpy array containing the result
 
     """
-    #return 10. * np.log10(20. * (vp) ** 2.)
-    return 20. * np.log10( (vp))
+    return 10. * np.log10(20. * (vp) ** 2.)
 
 
-def db2linear(dbm):
+def dbm2vrms(dbm):
     """
     Converts a scalar or a numpy array from dbm to volts RMS assuming there is an impedence of 50 Ohm
 
@@ -245,8 +232,7 @@ def db2linear(dbm):
         - scalar or numpy array containing the result
 
     """
-    #return np.sqrt((10. ** (dbm / 10.)) / 20.)
-    return (10. ** (dbm / 20.))
+    return np.sqrt((10. ** (dbm / 10.)) / 20.)
 
 
 def find_nearest(array, value):

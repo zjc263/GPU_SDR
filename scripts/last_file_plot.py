@@ -6,7 +6,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 import numpy as np
 import os
 import glob
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     list_of_files = glob.glob('USRP*.h5')
     latest_file = [x.split(".")[0] for x in (sorted(list_of_files, key=os.path.getctime))][0]
     ch_list = [0]
-    print("Opening " + str(latest_file))
+    print "Opening " + str(latest_file)
 
     u.plot_raw_data(latest_file, channel_list=ch_list,mode='IQ', output_filename = latest_file[0], end_time = 0.1, decimation = None,backend = 'matplotlib',size = (10,8))#
     u.plot_raw_data(latest_file, channel_list=ch_list,mode='IQ', output_filename = latest_file[0], end_time = 0.1, decimation = None,backend = 'plotly',size = (10,8))

@@ -8,7 +8,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 
 import argparse
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     if args.DAC_division  >= len(tones):
         amplitudes = [1./args.DAC_division for x in tones]
-        print("Amplitudes adjusted to ", amplitudes)
+        print "Amplitudes adjusted to ", amplitudes
     else:
         u.print_error("Cannot use 1./%d DAC each for %d tones." % (args.DAC_division,len(tones)))
         amplitudes=None

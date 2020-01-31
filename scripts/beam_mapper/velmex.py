@@ -168,22 +168,22 @@ def scan_thread(nx, ny, timer, pre_timer, name):
     with open(name+'.csv', 'wb') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerow(["start_time(epoch[s])","end_time(epoch[s])","x_pos(inch)","y_pos(inch)"])
-        print("waining scan signal")
+        print "waining scan signal"
         while not(start_scanning):
             time.sleep(0.1)
 
             if stop_thread:
                 break
-        print("waiting pretimer")
+        print "waiting pretimer"
         time.sleep(pre_timer)
         for i in range(0, nx):
             if stop_thread:
                 break
 
             if versor>0:
-                y_range = list(range(ny))
+                y_range = range(ny)
             else:
-                y_range = reversed(list(range(ny)))
+                y_range = reversed(range(ny))
 
             #scan line
             do_move = False
@@ -191,7 +191,7 @@ def scan_thread(nx, ny, timer, pre_timer, name):
                 if stop_thread:
                     break
                 else:
-                    print("Current position X: %d Y: %d"%(i,j))
+                    print "Current position X: %d Y: %d"%(i,j)
                 if do_move:
                     init()
                     moveFor (2, versor*step_size_y)
@@ -224,7 +224,7 @@ def start_thread(nx, ny, timer, pre_timer, name):
 
 def wait_for_positioning():
     global positioning
-    print("waiting for motor position 0,0 ...")
+    print "waiting for motor position 0,0 ..."
     while(positioning):
         time.sleep(0.1)
 
@@ -240,7 +240,7 @@ def stop():
     stop_thread = True
     thread_scan.join()
     stop_thread = False
-    print("Thread stoped")
+    print "Thread stoped"
 
 def calibrate():
     '''
@@ -250,36 +250,36 @@ def calibrate():
 
     # calibrate origin position
 
-    print("Getting minimum X")
+    print "Getting minimum X"
     moveHome(1)
     time.sleep(1)
     wait()
     LIMIT_LOW_X = getPos(1)
 
-    print("Getting minimum Y")
+    print "Getting minimum Y"
     moveHome(2)
     time.sleep(1)
     wait()
     LIMIT_LOW_Y = getPos(2)
 
 
-    print("Getting maximum X")
+    print "Getting maximum X"
     moveMax(1)
     time.sleep(1)
     wait()
     LIMIT_HIGH_X = getPos(1)
 
-    print("Getting maximum Y")
+    print "Getting maximum Y"
     moveMax(2)
     time.sleep(1)
     wait()
     LIMIT_HIGH_Y = getPos(2)
 
 
-    print("LIMIT_HIGH_Y = %d steps"%LIMIT_HIGH_Y)
-    print("LIMIT_HIGH_X = %d steps"%LIMIT_HIGH_X)
-    print("LIMIT_LOW_Y = %d steps"%LIMIT_LOW_Y)
-    print("LIMIT_LOW_X = %d steps"%LIMIT_LOW_X)
+    print "LIMIT_HIGH_Y = %d steps"%LIMIT_HIGH_Y
+    print "LIMIT_HIGH_X = %d steps"%LIMIT_HIGH_X
+    print "LIMIT_LOW_Y = %d steps"%LIMIT_LOW_Y
+    print "LIMIT_LOW_X = %d steps"%LIMIT_LOW_X
 
 def center():
     '''
@@ -293,30 +293,30 @@ def center():
     target_x = (LIMIT_HIGH_X - LIMIT_LOW_X)/2
 
     #move x
-    print("Centering X...")
+    print "Centering X..."
     current_x = getPos(1)
 
-    print("current %d"%current_x)
-    print("target %d"%target_x)
+    print "current %d"%current_x
+    print "target %d"%target_x
 
     movement = target_x - current_x
-    print("Moving %d step"%movement)
+    print "Moving %d step"%movement
     if movement != 0:
         moveFor (1, movement)
         time.sleep(0.5)
         wait()
     else:
-        print("already centered")
+        print "already centered"
 
     #move y
-    print("Centering Y...")
+    print "Centering Y..."
     current_y = getPos(2)
-    print("current %d"%current_y)
-    print("target %d"%target_y)
+    print "current %d"%current_y
+    print "target %d"%target_y
     movement = target_y - current_y
     if movement != 0:
-        print("Moving %d step"%movement)
+        print "Moving %d step"%movement
         moveFor (2, movement)
         wait()
     else:
-        print("already centered")
+        print "already centered"

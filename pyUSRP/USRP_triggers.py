@@ -7,8 +7,8 @@
 from .USRP_low_level import *
 import numpy as np
 from scipy import signal
-from .USRP_fitting import get_fit_param
-from .USRP_noise import calculate_frequency_timestream
+from USRP_fitting import get_fit_param
+from USRP_noise import calculate_frequency_timestream
 import h5py
 import time
 class trigger_template(object):
@@ -146,9 +146,9 @@ class amplitude_trigger(object):
 
         if channels is not None:
             self.channels = channels
-            print("The selected channels for triggering are:", channels)
+            print "The selected channels for triggering are:", channels
         else:
-            print("All", chs, "channels are being used for triggering.")
+            print "All", chs, "channels are being used for triggering."
             self.channels = np.arange(chs)
 
     def dataset_init(self, antenna_group):
@@ -190,7 +190,7 @@ class amplitude_trigger(object):
                 reshaped_data[n] = x + 1j*Qr
                 ##frequency is in real, Qr is in imaginary.
             tf = time.time()
-            print("Time to frequency convert is", tf-ti)
+            print "Time to frequency convert is", tf-ti
             ##finding the indices of the glitches:
             hits = np.zeros(n_samples, dtype=bool) ##initially all false.
             bounds = []
@@ -216,7 +216,7 @@ class amplitude_trigger(object):
                     count += 1
             ##now hit_indices only contains one marker per glitch.
             n_glitch = len(hit_indices)
-            print(n_glitch, "glitches detected.")
+            print n_glitch, "glitches detected."
             ##adding random noise info:
             num = int(srate*0.002) ##2 ms worth of points.
             rand1 = np.random.randint(num, high=n_samples-3*num)
@@ -231,7 +231,7 @@ class amplitude_trigger(object):
                     res = np.concatenate((res.T, chopped.T)).T
                     glitch_index.append(i+self.index)
                 else:
-                    print("Glitch index", i, "not in range.")
+                    print "Glitch index", i, "not in range."
                     n_glitch = n_glitch - 1
             self.nglitch.append(n_glitch)
             self.glitch_indices.extend(glitch_index)
@@ -241,7 +241,7 @@ class amplitude_trigger(object):
             self.time_index = 0
             self.index += n_samples
             t1 = time.time()
-            print("Time to run is", t1-t0)
+            print "Time to run is", t1-t0
             return res, metadata
         else: ##if data is not long enough.
             metadata['length'] = 0

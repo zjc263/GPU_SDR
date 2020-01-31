@@ -22,7 +22,7 @@ int main(int argc, char **argv){
 	set_this_thread_name("Main");
 	logging::add_common_attributes();
     std::cout << "\033[40;1;32mUSRP GPU Server v 2.0\033[0m" << std::endl;
-    BOOST_LOG_TRIVIAL(debug) << "EVENT:91; Server started";
+    BOOST_LOG_TRIVIAL(debug) << "Server started";
     bool file_write, net_streaming, sw_loop;
     std::string clock;
     int port_async,port_sync;
@@ -60,7 +60,7 @@ int main(int argc, char **argv){
     settings.TCP_streaming = net_streaming;
     settings.FILE_writing = file_write;
 
-    //look for USRP. This must be requested by the client. in this automatic version there is no active config!
+    //look for USRP
     hardware_manager usrp(&settings,sw_loop);
 
     //look for CUDA, initialize memory     (last arg is debug)
@@ -70,18 +70,20 @@ int main(int argc, char **argv){
     //look for USER
     Async_server async(true);
 
+
+
     while(active){
-        BOOST_LOG_TRIVIAL(info) << "EVENT_START:92; Main loop";
+        BOOST_LOG_TRIVIAL(info) << "Main loop";
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         if(async.connected()){
             usrp_param global_parameters;
             bool res = async.recv_async(global_parameters);//add here the action code as argument
             res = chk_param(&global_parameters);
-            BOOST_LOG_TRIVIAL(info) << "EVENT:93; Sending response to client application";
+            BOOST_LOG_TRIVIAL(info) << "Sending response to client application";
             json_res = new std::string(res?server_ack("Message received"):server_nack("Cannot convert JSON to params"));
             async.send_async(json_res);
             if(res){
-                BOOST_LOG_TRIVIAL(info) << "EVENT:93; Actuating client request";
+                BOOST_LOG_TRIVIAL(info) << "Implementing parameter configuration";
                 print_params(global_parameters);
                 thread_manager.set(&global_parameters);
                 thread_manager.start(&global_parameters);
@@ -98,14 +100,14 @@ int main(int argc, char **argv){
                     //if (async.chk_new_command())done = thread_manager.stop(true); //this is not working
                 }
                 json_res = new std::string(server_ack("EOM: end of measurement"));
-                BOOST_LOG_TRIVIAL(info) << "EVENT:95; Measure ended";
+                BOOST_LOG_TRIVIAL(info) << "Measure ended";
                 async.send_async(json_res);
             }else{
-                BOOST_LOG_TRIVIAL(warning) << "EVENT:94; Cannot actuate client request";
+                BOOST_LOG_TRIVIAL(warning) << "Parameter in the received message cannot be implemented";
             }
         }
     }
-    BOOST_LOG_TRIVIAL(info) << "EVENT_END:92; Exiting main loop";
+
     return 0;
 
 

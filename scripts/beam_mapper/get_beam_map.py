@@ -14,7 +14,7 @@ except ImportError:
         sys.path.append('../..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 
 
 import argparse
@@ -69,12 +69,12 @@ if __name__ == "__main__":
     motor_movement = 60 # one minute per row
     accell_time = 1./3
     calculated_duration = int(args.nx * args.ny * (args.integ_time  + accell_time) + motor_movement*(1+args.nx)) + 100 #just to be sure
-    print("Duration will be %.1f minutes"%(calculated_duration/60.))
+    print "Duration will be %.1f minutes"%(calculated_duration/60.)
     resp = ""
     while resp != "n" and resp != "y":
-        resp = input("procede? (y/n): ")
+        resp = raw_input("procede? (y/n): ")
         if resp == "n":
-            print("aborted")
+            print "aborted"
             exit()
     if not u.Connect():
         u.print_error("Cannot find the GPU server!")

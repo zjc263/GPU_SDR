@@ -30,7 +30,7 @@ def print_warning(message):
     :param message: the warning message.
     :return: None
     '''
-    print("\033[40;33mWARNING\033[0m: " + str(message) + ".")
+    print "\033[40;33mWARNING\033[0m: " + str(message) + "."
 
 
 def print_error(message):
@@ -39,7 +39,7 @@ def print_error(message):
     :param message: the error message.
     :return: None
     '''
-    print("\033[1;31mERROR\033[0m: " + str(message) + ".")
+    print "\033[1;31mERROR\033[0m: " + str(message) + "."
 
 
 def print_debug(message):
@@ -48,7 +48,7 @@ def print_debug(message):
     :param message: the debug message.
     :return: None
     '''
-    print("\033[3;2;37m" + str(message) + "\033[0m")
+    print "\033[3;2;37m" + str(message) + "\033[0m"
 
 def format_filename(filename):
     return os.path.splitext(filename)[0]+".h5"
@@ -127,7 +127,7 @@ def build_time_axis(filename, front_end = 'A_RX2', verbose = True):
     beam_data = get_beam_data(filename)
     beam_data_start = beam_data['ti'][0]
     beam_data_end = max(beam_data['tf'])
-    print(np.argmax(beam_data['tf']))
+    print np.argmax(beam_data['tf'])
     f = bound_open(filename)
     data_t_start = f['raw_data0'][front_end]['data'].attrs.get("start_epoch")
     data_rate = f['raw_data0'][front_end].attrs.get("rate")/f['raw_data0'][front_end].attrs.get("fft_tones")
@@ -251,8 +251,8 @@ def embed_beam_data(csv_filename, noise_filename, verbose = True):
     '''
     Embed beam map data in the noise file.
     '''
-    if verbose: print(("Embedding beam map data from file \'%s\' in the h5 noise file \'%s\'"
-        % (csv_filename,noise_filename)))
+    if verbose: print("Embedding beam map data from file \'%s\' in the h5 noise file \'%s\'"
+        % (csv_filename,noise_filename))
     noise_filename = format_filename(noise_filename)
     data = read_beam_csv(csv_filename)
     fv = h5py.File(noise_filename,'r+')
@@ -313,7 +313,7 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
     '''
     Calculate the beam map and write it in the file containing the data.
     '''
-    if verbose: print("Calculating beam map...")
+    if verbose: print "Calculating beam map..."
     time_axis = build_time_axis(filename, front_end, verbose)
     beam_data = get_beam_data(filename)
     nx = len(np.unique(beam_data['x']))
@@ -359,7 +359,7 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
             half_span = half_span,
             welch = welch,
             delay = 0
-        )  for ch in atpbar(list(range(n_chan)), name='channels') for step in atpbar(list(range(n_step)), name='motor steps')
+        )  for ch in atpbar(range(n_chan), name='channels') for step in atpbar(range(n_step), name='motor steps')
     )
     #]
     fp.close()
@@ -381,9 +381,9 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
 
     for ch in range(n_chan):
         channel_data = beam_map[int(ch*(nx*ny)):int((ch+1)*(nx*ny))]
-        w = list(zip(channel_data, beam_data['x'],beam_data['y']))
+        w = zip(channel_data, beam_data['x'],beam_data['y'])
         w.sort(key = lambda l: (l[1],l[2]), reverse=True)
-        channel_data = list(zip(*w))[0]
+        channel_data = zip(*w)[0]
         beam_group.create_dataset("channel_%d"%ch, data = channel_data)
     fv.close()
 
@@ -425,7 +425,7 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
     '''
     Plot the beam map stored on the h5 file.
     '''
-    print("Plotting beam map data...")
+    print "Plotting beam map data..."
 
     beam_data = get_full_beam_map_data(filename)
 
@@ -452,7 +452,7 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
 
     linewidths = np.linspace(0.5,1.5,len(levels))
     centers = []
-    for i in atpbar(list(range(beam_data['n_chan'])), name='channels plot'):
+    for i in atpbar(range(beam_data['n_chan']), name='channels plot'):
         fig, ax = pl.subplots(figsize=(sx,sy))
 
         Z = np.reshape(beam_data['data'][i],(beam_data['nx'],beam_data['ny']))
@@ -504,7 +504,7 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
 
         pl.close(fig)
     print_debug("Printing resonators map...")
-    centers = list(zip(*centers))
+    centers = zip(*centers)
     fig, ax = pl.subplots(figsize=(20,20))
     #pl.scatter(centers[0], centers[1], marker = '+')
     pl.title("Resonators position")

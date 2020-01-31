@@ -7,7 +7,8 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print ()"Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
+
 import argparse
 
 if __name__ == "__main__":
@@ -15,9 +16,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test the basic VNA functionality.')
 
     parser.add_argument('--folder', '-fn', help='Name of the folder in which the data will be stored. Move to this folder before everything', type=str, default = "data")
-    parser.add_argument('--subfolder', '-sf', help='Name of the sub-folder where to save all the data. Default will be swipe_<N>', type=str, default = "swipe_0")
     parser.add_argument('--gain', '-g', help='list of TX gains, default is 0', nargs='+')
-    parser.add_argument('--frontend', '-fr', help='front-end character: A or B', type=str, default="A")
+    parser.add_argument('--frontend', '-rf', help='front-end character: A or B', type=str, default="A")
     parser.add_argument('--guard_tones','-gt', nargs='+', help='Add guard Tones in MHz (offset from freq) as a list i.e. -T 1 2 3')
     parser.add_argument('--decimation', '-d', help='Decimation factor required', type=float, default=100)
     parser.add_argument('--time', '-t', help='Duration of the noise acquisition in seconds', type=float, default=10)
@@ -36,18 +36,6 @@ if __name__ == "__main__":
         pass
 
     os.chdir(args.folder)
-
-    folder_ok = False
-    subfolder_name = args.subfolder
-    sfc = 0
-    while not folder_ok:
-        try:
-            os.mkdir(subfolder_name)
-            os.chdir(args.folder)
-            folder_ok = True
-        except OSError:
-            sfc +=1
-            subfolder_name = "swipe_"+str(int(sfc))
 
     if args.gain is None:
         gains = [0,]
@@ -68,19 +56,15 @@ if __name__ == "__main__":
         u.print_warning(err_msg)
         ant = None
 
-    if args.trigger is not None:
+    if trigger is not None:
         try:
             trigger = eval('u.'+trigger+'()')
         except SyntaxError:
-            msg = "Cannot find the trigger \'%s\'. Is it implemented in the USRP_triggers module?"%trigger
-            u.print_error(msg)
-            raise ValueError(msg)
+            u.print_error("Cannot find the trigger \'%s\'. Is it implemented in the USRP_triggers module?"%trigger)
+            return ""
         except AttributeError:
-            msg = "Cannot find the trigger \'%s\'. Is it implemented in the USRP_triggers module?"%trigger
-            u.print_error(msg)
-            raise ValueError(msg)
-    else:
-        trigger = None
+            u.print_error("Cannot find the trigger \'%s\'. Is it implemented in the USRP_triggers module?"%trigger)
+            return ""
 
     #replicate the VNA measure (WARNING: DOES NOT SUPPORT ITERATIONS)
     u.print_debug("Replicating seed VNA measure to ensure phase coherency...")
@@ -120,10 +104,8 @@ if __name__ == "__main__":
         output_filename=None,
         Multitone_compensation=seed_ntones,
         Iterations=1,
-        verbose=False,
-        repeat_measure = True
+        verbose=False
     )
-
     u.VNA_analysis(vna_seed_filename)
     u.initialize_from_VNA(args.VNA, vna_seed_filename)
     u.vna_fit(vna_seed_filename, p0=None, fit_range = args.peak_width, verbose = False)
@@ -134,9 +116,7 @@ if __name__ == "__main__":
     #start swiping the gain parameter.
     # Add here other for loops on different params and possibly create/change folders
     #ack = raw_input("Press any key to continue (plotting of the first VNA should be in the browser)")
-    print("Seed set. Proceding with scan on gains: "+str(gains))
     for i in range(len(gains)):
-        print ("\n\nScanning gain %d ...\n\n"%gains[i])
         vna_filename = u.Single_VNA(
             start_f = seed_start_f,
             last_f = seed_end_f,
@@ -153,8 +133,7 @@ if __name__ == "__main__":
             output_filename=None,
             Multitone_compensation=seed_ntones,
             Iterations=1,
-            verbose=False,
-            repeat_measure = True
+            verbose=False
         )
         u.VNA_analysis(vna_filename)
         #initialize resonators from last VNA scan or from seed
@@ -190,8 +169,7 @@ if __name__ == "__main__":
             pf_average = 4,
             tx_gain = gains[i],
             mode = args.mode,
-            trigger = trigger,
-            repeat_measure = True
+            trigger = trigger
         )
 
         #copy the resonator group

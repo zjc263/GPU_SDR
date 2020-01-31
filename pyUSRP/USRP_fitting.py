@@ -15,8 +15,8 @@ import struct
 import json
 import os
 import socket
-import queue
-from queue import Empty
+import Queue
+from Queue import Empty
 from threading import Thread, Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -43,11 +43,11 @@ import matplotlib.patches as mpatches
 import progressbar
 
 # import submodules
-from .USRP_low_level import *
-from .USRP_files import *
+from USRP_low_level import *
+from USRP_files import *
 from scipy import optimize
-from .USRP_plotting import *
-from .USRP_VNA import linear_phase
+from USRP_plotting import *
+from USRP_VNA import linear_phase
 
 
 def real_of_complex(z):
@@ -212,7 +212,7 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
     """
 
     filename = format_filename(filename)
-    print(("Looking for peaks in file: \'%s\' ..."%filename))
+    print("Looking for peaks in file: \'%s\' ..."%filename)
 
     if verbose:
         print_debug("Peaks finder algorithm based on peakutil module. Search parameters:")
@@ -245,7 +245,7 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
 
     phase = np.angle(S21)
     magnitude = np.abs(S21)
-    magnitudedb = linear2db(magnitude)
+    magnitudedb = vrms2dbm(magnitude)
 
 
     # Remove the AA filter for usrp x300 ubx-160 100 Msps
@@ -297,8 +297,8 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
             freq_point = np.argmax(np.abs(f_prof - np.mean(f_prof)))
             fp_min = max(0,freq_point-10)
             fp_max = min(freq_point+10,len(gradS21))
-            gradS21 = np.delete(gradS21,list(range(fp_min,fp_max)))
-            freq = np.delete(freq,list(range(fp_min,fp_max)))
+            gradS21 = np.delete(gradS21,range(fp_min,fp_max))
+            freq = np.delete(freq,range(fp_min,fp_max))
     except:
         center = [center,]
 
@@ -324,7 +324,7 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
                     mask[ii] = False
                     gradS21[ii] = gradS21[ii-1]
                     center_excl[j].append(ii)
-                    print("excluding: %.2f"%(freq[ii]/1e6))
+                    print "excluding: %.2f"%(freq[ii]/1e6)
         if len(center_excl[j])>1:
             center_min[j] = min(center_excl[j])
             center_max[j] = max(center_excl[j])
@@ -374,7 +374,7 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
 
         fv.close()
 
-    print(("Initialize_peaks() found " +str(len(max_diag))+ " resonators."))
+    print("Initialize_peaks() found " +str(len(max_diag))+ " resonators.")
 
 
 def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3, Qr_cutoff=5e3, a_cutoff = 10, Mag_depth_cutoff = 0.15, verbose = False, exclude_center = True, diagnostic_plots = False):
@@ -398,7 +398,7 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
     """
 
     filename = format_filename(filename)
-    print(("Inintializing peaks in file: \'%s\' ..."%filename))
+    print("Inintializing peaks in file: \'%s\' ..."%filename)
 
     if verbose:
         print_debug("Peaks finder algorithm based on non-linear resonator model is being used. Search parameters:")
@@ -414,7 +414,7 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
 
     phase = np.angle(S21)
     magnitude = np.abs(S21)
-    magnitudedb = linear2db(magnitude)
+    magnitudedb = vrms2dbm(magnitude)
 
 
     # Remove the AA filter for usrp x300 ubx-160 100 Msps
@@ -497,7 +497,7 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
             a = modelwise[8]
 
             #depth filter
-            depth = np.abs(min(linear2db(zfit))-max(linear2db(zfit)))
+            depth = np.abs(min(vrms2dbm(zfit))-max(vrms2dbm(zfit)))
 
         except RuntimeError:
             Qr = 0
@@ -537,7 +537,7 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
             )
             ax.plot(
                 freq_[low_index:high_index],
-                linear2db(np.abs(zfit)),
+                vrms2dbm(np.abs(zfit)),
                 label = "fit",
                 color = "k"
             )
@@ -578,7 +578,7 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
 
         fv.close()
 
-    print(("Initialize_peaks() found " +str(len(max_diag))+ " resonators."))
+    print("Initialize_peaks() found " +str(len(max_diag))+ " resonators.")
 
     if N_peaks!=len(results):
         return False
@@ -638,7 +638,7 @@ def vna_fit(filename, p0=None, fit_range = 10e4, verbose = False):
 
     filename = format_filename(filename)
 
-    print(("Fitting resonators in file \'%s\' ..."%filename))
+    print("Fitting resonators in file \'%s\' ..."%filename)
 
     peaks_init = get_init_peaks(filename)
     frequency, S21 = get_VNA_data(filename, calibrated = True, usrp_number = 0)
@@ -671,10 +671,10 @@ def vna_fit(filename, p0=None, fit_range = 10e4, verbose = False):
         base_fit_freq = frequency[selection]
 
         try:
-            f0,Qi,Qr,zfit,modelwise = do_fit(base_fit_freq, base_fit_re, base_fit_im, p0=p0)
-        except:
-            print_warning("Something went wrong with the fit of resonator at %.2f MHz"%(tone/1e6))
-        else:
+    		f0,Qi,Qr,zfit,modelwise = do_fit(base_fit_freq,base_fit_re,base_fit_im,p0=p0)
+    	except:
+    		print_warning("Something went wrong with the fit of resonator at %.2f MHz"%(tone/1e6))
+    	else:
             if verbose: print_debug("Fitted succesfully.")
             try:
                 single_reso_grp = reso_grp.create_group("reso_%d"%fit_number)
@@ -819,7 +819,7 @@ def get_best_readout(filename, verbose = False):
     if verbose: print_debug("Best readout frequency deltas:")
     for resonator in R:
         delta_r = 1./resonator['Qr']
-        brf = 1e6*resonator['f0'] * (1 - resonator['a']*delta_r)
+    	brf = 1e6*resonator['f0'] * (1 - resonator['a']*delta_r)
         if verbose: print_debug("Resonator %.2f is shifted %.2fkHz"%(resonator['f0'], 1e3*np.abs(brf/1e6-resonator['f0'])))
         ret.append(brf)
 
@@ -959,9 +959,9 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
 
 
                     color = get_color(i+j)
-                    mag_fit = linear2db( np.abs(resonators[i][j]['fitted']) )
+                    mag_fit = vrms2dbm( np.abs(resonators[i][j]['fitted']) )
                     phase_fit = np.angle(resonators[i][j]['fitted'])
-                    mag_orig = linear2db( np.abs(resonators[i][j]['original']) )
+                    mag_orig = vrms2dbm( np.abs(resonators[i][j]['original']) )
                     phase_orig = np.angle(resonators[i][j]['original'])
                     freq_axis = resonators[i][j]['frequency'] - fit_info[i][j]['f0']*1e6
                     readout_point = find_nearest(freq_axis,brf[i][j]- fit_info[i][j]['f0']*1e6)
@@ -1067,9 +1067,9 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
 
 
                     color = 'black'
-                    mag_fit = linear2db( np.abs(resonators[i][j]['fitted']) )
+                    mag_fit = vrms2dbm( np.abs(resonators[i][j]['fitted']) )
                     phase_fit = np.angle(resonators[i][j]['fitted'])
-                    mag_orig = linear2db( np.abs(resonators[i][j]['original']) )
+                    mag_orig = vrms2dbm( np.abs(resonators[i][j]['original']) )
                     phase_orig = np.angle(resonators[i][j]['original'])
                     freq_axis = resonators[i][j]['frequency'] - fit_info[i][j]['f0']*1e6
                     readout_point = find_nearest(freq_axis,brf[i][j]- fit_info[i][j]['f0']*1e6)
@@ -1124,20 +1124,19 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
             final_output_name = ret_names
 
     elif backend == "plotly":
-        fig = plotly.subplots.make_subplots(
-                rows=3, cols=3,
-                specs=[
-                    [
+    	fig = plotly.subplots.make_subplots(
+            rows=3, cols=3,
+            specs=[
+                [
                     {'rowspan': 2, 'colspan': 2 },
                     None,
                     {'rowspan': 3}
-                    ],
-                    [None, None,None],
-                    [{'colspan': 2}, None,None],
-                    ],
-                subplot_titles=('IQ circle', 'Phase','Magnitude'),
-                print_grid=False
-            )
+                ],
+                [None, None,None],
+                [{'colspan': 2}, None,None],
+            ],
+            print_grid=True,subplot_titles=('IQ circle', 'Phase','Magnitude')
+        )
         title_fig = r'Fit (dashed) vs data (solid). Zero is set to f0 of each resonator, marker is the readout frequency.<br>'
         if len(filenames) == 1:
             title_fig+="From file %s"%filenames[0]
@@ -1163,9 +1162,9 @@ def plot_resonators(filenames, reso_freq = None, backend = 'matplotlib', title_i
                 #sorry for monoblock programming, python sometimes goes crazy with indent
                 x = i*len(resonators[i])+j
                 c = get_color(i+j)
-                mag_fit = linear2db( np.abs(resonators[i][j]['fitted']) )
+                mag_fit = vrms2dbm( np.abs(resonators[i][j]['fitted']) )
                 phase_fit = np.angle(resonators[i][j]['fitted'])
-                mag_orig = linear2db( np.abs(resonators[i][j]['original']) )
+                mag_orig = vrms2dbm( np.abs(resonators[i][j]['original']) )
                 phase_orig = np.angle(resonators[i][j]['original'])
                 freq_axis = resonators[i][j]['frequency'] - fit_info[i][j]['f0']*1e6
                 readout_point = find_nearest(freq_axis,brf[i][j]- fit_info[i][j]['f0']*1e6)

@@ -8,7 +8,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 
 import argparse
 
@@ -60,4 +60,4 @@ if __name__ == "__main__":
 
     while True:
         run(rate = args.rate*1e6, freq = args.freq*1e6, front_end = args.frontend, duration = args.time)
-        input("Press to measure again...")
+        raw_input("Press to measure again...")

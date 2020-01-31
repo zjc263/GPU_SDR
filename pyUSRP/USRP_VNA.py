@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import queue
-from queue import Empty
+import Queue
+from Queue import Empty
 from threading import Thread,Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -44,12 +44,12 @@ import matplotlib.patches as mpatches
 import progressbar
 
 #import submodules
-from .USRP_low_level import *
-from .USRP_connections import *
-from .USRP_plotting import *
-from .USRP_files import *
-from .USRP_data_analysis import *
-from .USRP_delay import *
+from USRP_low_level import *
+from USRP_connections import *
+from USRP_plotting import *
+from USRP_files import *
+from USRP_data_analysis import *
+from USRP_delay import *
 
 def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_gain_A, tx_gain_B, Rate = None, decimation = True, RF_A = None, RF_B = None,
                Device = None, output_filename = None, Multitone_compensation_A = None, Multitone_compensation_B = None, Iterations = 1, verbose = False, **kwargs):
@@ -97,7 +97,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
         RF_A = delta_f_A/2.
         start_f_A -= RF_A
         last_f_A -= RF_A
-        print("Setting RF (frontend A) central frequency to %.2f MHz"%(RF_A/1.e6))
+        print "Setting RF (frontend A) central frequency to %.2f MHz"%(RF_A/1.e6)
     else:
         delta_f_A = max(start_f_A,last_f_A) - min(start_f_A,last_f_A)
 
@@ -115,7 +115,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
         RF_B = delta_f_B/2.
         start_f_B -= RF_B
         last_f_B -= RF_B
-        print("Setting RF (frontend B) central frequency to %.2f MHz"%(RF_B/1.e6))
+        print "Setting RF (frontend B) central frequency to %.2f MHz"%(RF_B/1.e6)
     else:
         delta_f_B = max(start_f_B,last_f_B) - min(start_f_B,last_f_B)
 
@@ -161,7 +161,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
         delay = LINE_DELAY[str(int(Rate/1e6))]
         delay *= 1e-9
     except KeyError:
-        print_warning("Cannot find associated line delay for a rate of %d Msps. Performance may be negatively affected"%(int(Rate/1e6)))
+        print_warning("Cannot find associated line delay for a rate of %d Msps. Performance may be negatively affected"%(int(rate/1e6)))
         delay = 0
 
     if output_filename is None:
@@ -245,7 +245,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
     vna_command.set(RX_frontend_B,"decim", decimation) # THIS only activate the decimation.
     if vna_command.self_check():
         if(verbose):
-            print("VNA command succesfully checked")
+            print "VNA command succesfully checked"
             vna_command.pprint()
 
         Async_send(vna_command.to_json())
@@ -274,7 +274,7 @@ def Dual_VNA(start_f_A, last_f_A, start_f_B, last_f_B, measure_t, n_points, tx_g
 
 
 def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decimation = True, RF = None, Front_end = None,
-               Device = None, output_filename = None, Multitone_compensation = None, Iterations = 1, verbose = False, repeat_measure = False, **kwargs):
+               Device = None, output_filename = None, Multitone_compensation = None, Iterations = 1, verbose = False, **kwargs):
 
     '''
     Perform a VNA scan using a single frontend of a single USRP device.
@@ -293,7 +293,6 @@ def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decim
         - Device: the on-server device number to use. default is 0.
         - Multitone_compensation: integer representing the number of tones: compensate the amplitude of the signal to match a future multitones accuisition.
         - Iterations: by default a single VNA scan pass is performed.
-        - repeat_measure: when true, in case of an error, repeat the measure and delete the old file. Default is False.
         - verbose: if True outputs on terminal some diagnostic info. deafult is False.
         - keyword arguments: Each keyword argument will be interpreted as an attribute to add to the raw_data group of the h5 file.
 
@@ -317,7 +316,7 @@ def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decim
         RF = delta_f/2.
         start_f -= RF
         last_f -= RF
-        print("Setting RF central frequency to %.2f MHz"%(RF/1.e6))
+        print "Setting RF central frequency to %.2f MHz"%(RF/1.e6)
     else:
         delta_f = max(start_f,last_f) - min(start_f,last_f)
 
@@ -417,43 +416,31 @@ def Single_VNA(start_f, last_f, measure_t, n_points, tx_gain, Rate = None, decim
     vna_command.set(RX_frontend,"rf", RF)
     vna_command.set(RX_frontend,"decim", decimation) # THIS only activate the decimation.
 
-    measure_complete = False
+    if vna_command.self_check():
+        if(verbose):
+            print "VNA command succesfully checked"
+            vna_command.pprint()
 
-    while not measure_complete:
+        Async_send(vna_command.to_json())
 
-        if vna_command.self_check():
-            if(verbose):
-                print("VNA command succesfully checked")
-                vna_command.pprint()
+    else:
+        print_warning("Something went wrong with the setting of VNA command.")
+        return ""
 
-            Async_send(vna_command.to_json())
+    if decimation:
+        expected_samples = Iterations * n_points
+    else:
+        expected_samples = number_of_samples
 
-        else:
-            print_warning("Something went wrong with the setting of VNA command.")
-            return ""
+    Packets_to_file(
+        parameters = vna_command,
+        timeout = None,
+        filename = output_filename,
+        dpc_expected = expected_samples,
+        meas_type = "VNA", **kwargs
+    )
 
-        if decimation:
-            expected_samples = Iterations * n_points
-        else:
-            expected_samples = number_of_samples
-
-        Packets_to_file(
-            parameters = vna_command,
-            timeout = None,
-            filename = output_filename,
-            dpc_expected = expected_samples,
-            meas_type = "VNA", **kwargs
-        )
-
-        print_debug("VNA acquisition terminated.")
-
-        if repeat_measure:
-            measure_complete = not check_errors(output_filename)
-            if not measure_complete:
-                print_warning("Errors found in the measure, deleting and repeating.")
-                os.remove(output_filename + ".h5")
-        else:
-            measure_complete = True
+    print_debug("VNA acquisition terminated.")
 
     return output_filename
 
@@ -474,7 +461,7 @@ def VNA_timestream_analysis(filename, usrp_number = 0):
         print_error("Cannot interpret filename while opening a H5 file in Single_VNA_analysis function")
         raise ValueError("Cannot interpret filename while opening a H5 file in Single_VNA_analysis function")
 
-    print(("Analyzing VNA file \'%s\'..."%filename))
+    print("Analyzing VNA file \'%s\'..."%filename)
 
     parameters = global_parameter()
     parameters.retrive_prop_from_file(filename)
@@ -505,16 +492,11 @@ def VNA_timestream_analysis(filename, usrp_number = 0):
     fr = 0
 
     for single_frontend in info:
-        #iterations = int((single_frontend['samples']/single_frontend['rate'])/single_frontend['chirp_t'][0])
-
-        #account for incomplete measures
-        effective_samples = len(openH5file(filename, front_end = active_front_ends[fr])[0])
-        iterations = int(np.floor(float(effective_samples)/single_frontend['swipe_s'][0]))
-        effective_samples = int(np.floor(float(effective_samples)/iterations) * iterations)
+        iterations = int((single_frontend['samples']/single_frontend['rate'])/single_frontend['chirp_t'][0])
         print_debug("Frontend \'%s\' has %d VNA iterations" % (front_ends[fr], iterations))
 
         #effective calibration
-        calibration.append( (1./ampls[fr])*CURRENT_CALIBRATION['tmp_calib']/(10**((USRP_power + gains[fr])/20.)) )
+        calibration.append( (1./ampls[fr])*USRP_calibration/(10**((USRP_power + gains[fr])/20.)) )
         print_debug("Calculating calibration with %d dB gain and %.3f amplitude correction"%(gains[fr],ampls[fr]))
 
         if single_frontend['decim'] == 1:
@@ -522,7 +504,7 @@ def VNA_timestream_analysis(filename, usrp_number = 0):
             freq_axis_tmp = np.linspace(single_frontend['freq'][0],single_frontend['chirp_f'][0], single_frontend['swipe_s'][0],
                         dtype = np.float64) + single_frontend['rf']
 
-            S21_axis_tmp = np.split(openH5file(filename, front_end = active_front_ends[fr])[0][:effective_samples], iterations)
+            S21_axis_tmp = np.split(openH5file(filename, front_end = active_front_ends[fr])[0], iterations)
 
             length.append(single_frontend['swipe_s'])
 
@@ -654,7 +636,7 @@ def VNA_timestream_plot(filename, backend='matplotlib', mode = 'magnitude', unwr
             fig_size = (25, 10)
         fig, ax = pl.subplots(figsize=fig_size)
 
-        mag = linear2db(np.abs(S21_axes))
+        mag = vrms2dbm(np.abs(S21_axes))
 
         if unwrap_phase:
             phase = linear_phase(np.angle(S21_axes))
@@ -694,8 +676,8 @@ def VNA_timestream_plot(filename, backend='matplotlib', mode = 'magnitude', unwr
 
         fig.colorbar(img, label='|S21|')
         final_filename = output_filename+".png"
-        print(final_filename)
-        pl.savefig(final_filename, bbox_inches="tight", dpi = 900)
+        print final_filename
+        pl.savefig(final_filename, bbox_inches="tight")
 
 
 def VNA_analysis(filename, usrp_number = 0):
@@ -708,8 +690,6 @@ def VNA_analysis(filename, usrp_number = 0):
 
     '''
 
-    global CURRENT_CALIBRATION
-
     usrp_number = int(usrp_number)
 
     try:
@@ -718,7 +698,7 @@ def VNA_analysis(filename, usrp_number = 0):
         print_error("Cannot interpret filename while opening a H5 file in Single_VNA_analysis function")
         raise ValueError("Cannot interpret filename while opening a H5 file in Single_VNA_analysis function")
 
-    print(("Anlyzing VNA file \'%s\'..."%filename))
+    print("Anlyzing VNA file \'%s\'..."%filename)
 
     parameters = global_parameter()
     parameters.retrive_prop_from_file(filename)
@@ -739,6 +719,7 @@ def VNA_analysis(filename, usrp_number = 0):
         if parameters.parameters[ant]['mode'] == "TX" and parameters.parameters[ant]['wave_type'][0] == "CHIRP":
             gains.append(parameters.parameters[ant]['gain'])
             ampls.append(parameters.parameters[ant]['ampl'][0])
+
     print_debug("Found %d active frontends"%len(info))
 
     freq_axis = np.asarray([],dtype = np.float64)
@@ -751,8 +732,7 @@ def VNA_analysis(filename, usrp_number = 0):
         print_debug("Frontend \'%s\' has %d VNA iterations" % (front_ends[fr], iterations))
 
         #effective calibration
-        #calibration.append( (1./ampls[fr])*CURRENT_CALIBRATION['tmp_calib']/(10**((USRP_power + gains[fr])/20.)) )
-        calibration.append( ((1./ampls[fr])*CURRENT_CALIBRATION['tmp_calib'])*db2linear(USRP_power - gains[fr]) )
+        calibration.append( (1./ampls[fr])*USRP_calibration/(10**((USRP_power + gains[fr])/20.)) )
         print_debug("Calculating calibration with %d dB gain and %.3f amplitude correction"%(gains[fr],ampls[fr]))
 
         # The final frequency is slighly different than expected (single_frontend['swipe_s'][0]) due to a kernel integer calculation
@@ -824,7 +804,7 @@ def VNA_analysis(filename, usrp_number = 0):
     print_debug("Analysis of file \'%s\' concluded."%filename)
 
 
-def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_phase = True, verbose = False, plot_decim = None, **kwargs):
+def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_phase = True, verbose = False, **kwargs):
     '''
     Plot the VNA data from various files.
 
@@ -833,7 +813,6 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
     :param output_filename: filename of the output figure without extension. Default is VNA(_compare)_timestamp.xxx.
     :param unwrap_phase: if False the angle of S21 is not unwrapped.
     :param verbose: print some debug line.
-    :param plot_decim: decimate the plots, helps a lot with file size using the plotly backend. Note: may not work well with resonator tag plot.
     :param kwargs:
         - figsize=(xx,yy) inches for matplotlib backends.
         - add_info = ["..","..",".."] fore commenting each file in the legend.
@@ -897,12 +876,8 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
     reso_axes = []
     for filename in filenames:
         if verbose: print_debug("Plotting VNA from file \'%s\'"%filename)
-        freq_tmp, S21_tmp = get_VNA_data(filename, calibrated = True)
-        if plot_decim is not None:
-            plot_decim = int(plot_decim)
-            crop = int(len(freq_tmp)*(0.01/plot_decim))+1
-            freq_tmp = signal.decimate(freq_tmp, plot_decim, ftype='fir')[crop:-crop]
-            S21_tmp = signal.decimate(S21_tmp, plot_decim, ftype='fir')[crop:-crop]
+        freq_tmp, S21_tmp = get_VNA_data(filename)
+
         freq_axes.append(freq_tmp)
         S21_axes.append(S21_tmp)
         reso_axes.append( get_init_peaks(filename, verbose = verbose))
@@ -917,12 +892,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
         output_filename+="_"+get_timestamp()
 
     fit_label = ""
-    #if(unwrap_phase):
-    #Check which scan is subsequest to which and adjust the phases? #TODO
-    # Get wich scan is subsequent to which:
-    #first point of the second is bigger or equal to last point of the first
 
-    # adjust the phase of subsequent scans
     if backend == "matplotlib":
         if verbose: print_debug("Using matplotlib backend...")
 
@@ -937,7 +907,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
 
         for i in range(len(filenames)):
 
-            mag = linear2db(np.abs(S21_axes[i]))
+            mag = vrms2dbm(np.abs(S21_axes[i]))
 
             if unwrap_phase:
                 phase = linear_phase(np.angle(S21_axes[i]))
@@ -1008,7 +978,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
 
         fig['layout'].update(title=title)
         fig['layout'].update(autosize=True)
-        fig['layout']['xaxis2'].update(title='Frequency [Hz]')
+        fig['layout']['xaxis1'].update(title='Frequency [Hz]')
         fig['layout']['xaxis1'].update(exponentformat='SI')
         #fig['layout']['xaxis1'].update(ticksuffix='Hz') # does not work well with logscale
 
@@ -1041,7 +1011,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
                 label += "<br>" + str(add_info_labels[i])
 
 
-            mag = linear2db(np.abs(S21_axes[i]))
+            mag = vrms2dbm(np.abs(S21_axes[i]))
 
             if unwrap_phase:
                 phase = linear_phase(np.angle(S21_axes[i]))
@@ -1119,7 +1089,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
                 fig.append_trace(traceP_fit, 2, 1)
 
         final_filename = output_filename + ".html"
-        style_plotly_figure(fig)
+        plotly.offline.plot(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     else:

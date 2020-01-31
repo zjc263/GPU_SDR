@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import queue
-from queue import Empty
+import Queue
+from Queue import Empty
 from threading import Thread, Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -42,8 +42,8 @@ import matplotlib.patches as mpatches
 import progressbar
 
 # import submodules
-from .USRP_low_level import *
-from .USRP_files import *
+from USRP_low_level import *
+from USRP_files import *
 
 
 def reinit_data_socket():
@@ -223,7 +223,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                 return h5file
             except IOError as msg:
                 print_error("Cannot create the file " + filename + ".h5:")
-                print(msg)
+                print msg
                 return ""
         else:
             print_warning(
@@ -253,7 +253,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
 
     if filename == None:
         filename = "USRP_DATA_" + get_timestamp()
-        print("Writing data on disk with filename: \"" + filename + ".h5\"")
+        print "Writing data on disk with filename: \"" + filename + ".h5\""
 
     H5_file_pointer = create_h5_file(str(filename))
     Param_to_H5(H5_file_pointer, parameters, trigger, **kwargs)
@@ -342,7 +342,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
         print_warning("Residual elements in the libUSRP data queue are being lost!")
 
     H5_file_pointer.close()
-    print("\033[7;1;32mH5 file closed succesfully.\033[0m")
+    print "\033[7;1;32mH5 file closed succesfully.\033[0m"
     CLIENT_STATUS["measure_running_now"] = False
     return filename
 
@@ -426,12 +426,12 @@ def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
 
 
 def Print_Sync_Header(header):
-    print("usrp_number" + str(header['usrp_number']))
-    print("front_end_code" + str(header['front_end_code']))
-    print("packet_number" + str(header['packet_number']))
-    print("length" + str(header['length']))
-    print("errors" + str(header['errors']))
-    print("channels" + str(header['channels']))
+    print "usrp_number" + str(header['usrp_number'])
+    print "front_end_code" + str(header['front_end_code'])
+    print "packet_number" + str(header['packet_number'])
+    print "length" + str(header['length'])
+    print "errors" + str(header['errors'])
+    print "channels" + str(header['channels'])
 
 
 def Decode_Async_header(header):
@@ -683,7 +683,7 @@ def Wait_for_async_connection(timeout=None):
     time_elapsed = 0
 
     if timeout is None:
-        timeout = sys.maxsize
+        timeout = sys.maxint
     try:
         while time_elapsed < timeout:
             Async_condition.acquire()
@@ -720,7 +720,7 @@ def Wait_for_sync_connection(timeout=None):
     time_elapsed = 0
     x = False
     if timeout is None:
-        timeout = sys.maxsize
+        timeout = sys.maxint
     try:
         while time_elapsed < timeout:
 
@@ -1000,7 +1000,7 @@ def Start_Sync_RX():
             reinit_data_socket()
             USRP_data_queue = multiprocessing.Queue()
         except socket.error as msg:
-            print(msg)
+            print msg
             pass
         Sync_RX_loop = multiprocessing.Process(target=Sync_RX, name="Sync_RX",
                                                args=(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue), kwargs={})
@@ -1024,4 +1024,4 @@ def Stop_Sync_RX(CLIENT_STATUS=CLIENT_STATUS):
     if Sync_RX_loop.is_alive():
         Sync_RX_loop.terminate()  # I do not know why it's alive even if it exited all the loops
         # Sync_RX_loop.join(timeout = 5)
-    print("Sync RX stopped")
+    print "Sync RX stopped"

@@ -8,16 +8,16 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print("Cannot find the pyUSRP package")
+        print "Cannot find the pyUSRP package"
 
 import argparse
 
-def run(backend, files, welch, dbc, att):
+def run(backend, files, welch, dbc):
     for f in files:
-        #u.calculate_noise(f, verbose = True, welch = max(welch,1), dbc = dbc, clip = 0.1)
-        pass
-    print(u.plot_noise_spec(files, channel_list=None, max_frequency=1000, title_info=None, backend=backend,
-                    cryostat_attenuation=att, auto_open=True, output_filename=None, add_info = None))
+        u.calculate_noise(f, verbose = True, welch = max(welch,1), dbc = dbc, clip = 0.1)
+
+    print u.plot_noise_spec(files, channel_list=None, max_frequency=10000, title_info=None, backend=backend,
+                    cryostat_attenuation=0, auto_open=True, output_filename=None, add_info = None)
 
 if __name__ == "__main__":
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('--backend', '-b', help='backend to use for plotting', type=str, default= "matplotlib")
     parser.add_argument('--welch', '-w', help='Whelch factor relative to timestream length so that welch factor is len(timestream)/this_arg', type=int, default= 5)
     parser.add_argument('--dbc', '-dbc', help='Analyze and plot in dBc or not', action="store_true")
-    parser.add_argument('--att', '-a', help='Total attenuation', type=int, default= 0)
+
 
 
     args = parser.parse_args()
@@ -41,4 +41,4 @@ if __name__ == "__main__":
 
     files = glob.glob("USRP_Noise*.h5")
 
-    run(backend = args.backend, files = files, welch = args.welch, dbc = args.dbc, att = args.att)
+    run(backend = args.backend, files = files, welch = args.welch, dbc = args.dbc)

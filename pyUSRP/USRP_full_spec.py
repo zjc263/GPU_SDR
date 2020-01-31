@@ -14,8 +14,8 @@ import struct
 import json
 import os
 import socket
-import queue
-from queue import Empty
+import Queue
+from Queue import Empty
 from threading import Thread, Condition
 import multiprocessing
 from joblib import Parallel, delayed
@@ -43,9 +43,9 @@ from matplotlib.ticker import EngFormatter
 import progressbar
 
 # import submodules
-from .USRP_low_level import *
-from .USRP_files import *
-from .USRP_delay import *
+from USRP_low_level import *
+from USRP_files import *
+from USRP_delay import *
 
 def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gain = 0, output_filename = None, Front_end = None,
               Device = None, delay = None, **kwargs):
@@ -88,7 +88,7 @@ def get_NODSP_tones(tones, measure_t, rate, amplitudes = None, RF = None, tx_gai
     else:
         output_filename = str(output_filename)
 
-    print(("Begin noise acquisition, file %s ..."%output_filename))
+    print("Begin noise acquisition, file %s ..."%output_filename)
 
     if measure_t <= 0:
         print_error("Cannot execute a noise measure with "+str(measure_t)+"s duration.")
@@ -241,7 +241,7 @@ def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None,
     else:
         output_filename = str(output_filename)
 
-    print(("Begin noise acquisition, file %s ..."%output_filename))
+    print("Begin noise acquisition, file %s ..."%output_filename)
 
     if measure_t <= 0:
         print_error("Cannot execute a noise measure with "+str(measure_t)+"s duration.")
@@ -278,7 +278,7 @@ def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None,
 
     print("Tone [MHz]\tPower [dBm]\tOffset [MHz]")
     for i in range(len(tones)):
-        print(("%.1f\t%.2f\t%.1f" % ((RF + tones[i]) / 1e6, USRP_power + 20 * np.log10(amplitudes[i]), tones[i] / 1e6)))
+        print("%.1f\t%.2f\t%.1f" % ((RF + tones[i]) / 1e6, USRP_power + 20 * np.log10(amplitudes[i]), tones[i] / 1e6))
         if tones[i] > rate / 2:
             print_error("Out of bandwidth tone!")
             raise ValueError("Out of bandwidth tone requested. %.2f MHz / %.2f MHz (Nyq)" %(tones[i]/1e6, rate / 2e6) )
@@ -336,22 +336,22 @@ def Get_full_spec(tones, channels, measure_t, rate, RF = None, Front_end = None,
     tx_number_of_samples = rate * measure_t
 
     noise_command = global_parameter()
-    if len(tones) != 0:
-        noise_command.set(TX_frontend, "mode", "TX")
-        noise_command.set(TX_frontend, "buffer_len", 1e6)
-        noise_command.set(TX_frontend, "gain", tx_gain)
-        noise_command.set(TX_frontend, "delay", 1)
-        noise_command.set(TX_frontend, "samples", tx_number_of_samples)
-        noise_command.set(TX_frontend, "rate", rate)
-        noise_command.set(TX_frontend, "bw", 2 * rate)
 
-        noise_command.set(TX_frontend, "wave_type", ["TONES" for x in tones])
-        noise_command.set(TX_frontend, "ampl", amplitudes)
-        noise_command.set(TX_frontend, "freq", tones)
-        noise_command.set(TX_frontend, "rf", RF)
+    noise_command.set(TX_frontend, "mode", "TX")
+    noise_command.set(TX_frontend, "buffer_len", 1e6)
+    noise_command.set(TX_frontend, "gain", tx_gain)
+    noise_command.set(TX_frontend, "delay", 1)
+    noise_command.set(TX_frontend, "samples", tx_number_of_samples)
+    noise_command.set(TX_frontend, "rate", rate)
+    noise_command.set(TX_frontend, "bw", 2 * rate)
 
-        # This parameter does not have an effect (except suppress a warning from the server)
-        noise_command.set(TX_frontend, "fft_tones", 100)
+    noise_command.set(TX_frontend, "wave_type", ["TONES" for x in tones])
+    noise_command.set(TX_frontend, "ampl", amplitudes)
+    noise_command.set(TX_frontend, "freq", tones)
+    noise_command.set(TX_frontend, "rf", RF)
+
+    # This parameter does not have an effect (except suppress a warning from the server)
+    noise_command.set(TX_frontend, "fft_tones", 100)
 
     noise_command.set(RX_frontend, "mode", "RX")
     noise_command.set(RX_frontend, "buffer_len", 1e6)
@@ -516,7 +516,7 @@ def plot_pfb(filename, decimation=None, low_pass=None, backend='matplotlib', out
 
         fig = go.Figure(data=data, layout=layout)
         final_filename = output_filename + ".html"
-        style_plotly_figure(fig)
+        plotly.offline.plot(fig)
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     return final_filename

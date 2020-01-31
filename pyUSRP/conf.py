@@ -19,14 +19,14 @@ sys.path.insert(0, os.path.abspath('.'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'pyUSRP'
-copyright = '2019, Jet Propulsion Laboratory'
-author = 'Jet Propulsion Laboratory'
+project = u'pyUSRP'
+copyright = u'2019, Jet Propulsion Laboratory'
+author = u'Jet Propulsion Laboratory'
 
 # The short X.Y version
-version = ''
+version = u''
 # The full version, including alpha/beta/rc tags
-release = '2.0'
+release = u'2.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -133,8 +133,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'pyUSRP.tex', 'pyUSRP Documentation',
-     'Jet Propulsion Laboratory', 'manual'),
+    (master_doc, 'pyUSRP.tex', u'pyUSRP Documentation',
+     u'Jet Propulsion Laboratory', 'manual'),
 ]
 
 
@@ -143,7 +143,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'pyusrp', 'pyUSRP Documentation',
+    (master_doc, 'pyusrp', u'pyUSRP Documentation',
      [author], 1)
 ]
 
@@ -154,7 +154,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'pyUSRP', 'pyUSRP Documentation',
+    (master_doc, 'pyUSRP', u'pyUSRP Documentation',
      author, 'pyUSRP', 'Python API to control the GPU USRP interface server',
      'Miscellaneous'),
 ]

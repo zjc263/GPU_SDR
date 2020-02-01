@@ -394,7 +394,10 @@ def get_meas_type(filename):
         - ValueError if the file is not operable with HDF5 lib.
 
     '''
-    filename = format_filename(filename)
+    try:
+        filename = format_filename(filename)
+    except TypeError:
+        return ['Corrupted']
     f = bound_open(filename, mode = 'r')
     res = []
     if f is None:

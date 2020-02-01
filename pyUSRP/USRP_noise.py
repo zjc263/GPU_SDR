@@ -725,6 +725,19 @@ def spec_from_samples(samples, sampling_rate=1, welch=None, dbc=False, rotate=Tr
 
     return Frequencies, 10 * np.log10(RealPart), 10 * np.log10(ImaginaryPart)
 
+def has_noise_group(filename, usrp_number = 0):
+    '''
+    Check if a file has noise spectrum data.
+    '''
+    f = bound_open(filename)
+
+    try:
+        reso_grp = f['Noise' +str(int(usrp_number))]
+        ret = True
+    except KeyError:
+        ret = False
+    f.close()
+    return ret
 
 def calculate_noise(filename, welch=None, dbc=False, rotate=True, usrp_number=0, ant=None, verbose=False, clip=0.1):
     '''
@@ -1900,6 +1913,20 @@ def calculate_NEF_spectra(filename, welch = 1, clip = 0.1, verbose = True, usrp_
     fv.close()
 
     return
+
+def has_NEF_group(filename, usrp_number = 0):
+    '''
+    Check if the file has a NEF group, i.e. has been anayzed with calculate_NEF_spectra.
+    '''
+    f = bound_open(filename)
+
+    try:
+        reso_grp = f['Noise_QF' + str(int(usrp_number))]
+        ret = True
+    except KeyError:
+        ret = False
+    f.close()
+    return ret
 
 def plot_NEF_spectra(filenames, channel_list=None, max_frequency=None, title_info=None, backend='matplotlib',
                     cryostat_attenuation=0, auto_open=True, output_filename=None, **kwargs):

@@ -714,6 +714,20 @@ def vna_fit(filename, p0=None, fit_range = 10e4, verbose = False):
     else:
         return True
 
+def has_fit_data(filename):
+    '''
+    Check if a file has fit data.
+    '''
+    f = bound_open(filename)
+
+    try:
+        reso_grp = f['Resonators']
+        ret = True
+    except KeyError:
+        ret = False
+    f.close()
+    return ret
+
 def get_fit_data(filename, verbose = False):
     '''
     Retrive fit data from a file. For fit data is intended the fitted S21.
@@ -756,18 +770,6 @@ def get_fit_data(filename, verbose = False):
     if verbose: print_debug("Resonator data collected")
     f.close()
     return ret
-
-def check_resonator_group(filename):
-    '''
-    Check if  afile has the resonator group attached.
-    '''
-    f = bound_open(format_filename(filename))
-
-    try:
-        reso_grp = f['Resonators']
-        return True
-    except KeyError:
-        return False
 
 def get_fit_param(filename, verbose = False):
     '''

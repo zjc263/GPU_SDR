@@ -207,6 +207,20 @@ def measure_line_delay(rate, LO_freq, RF_frontend, USRP_num = 0, tx_gain = 0, rx
 
     return output_filename
 
+def has_delay_goup(filename):
+    '''
+    Check if a file has noise spectrum data.
+    '''
+    f = bound_open(filename)
+
+    try:
+        reso_grp = f['delay_info']
+        ret = True
+    except KeyError:
+        ret = False
+    f.close()
+    return ret
+
 def write_delay_to_file(filename, delay):
     '''
     Wrapper around h5py functions to write the delay on file.

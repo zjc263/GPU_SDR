@@ -1743,8 +1743,10 @@ def diagnostic_VNA_noise(noise_filename, points = None, VNA_file = None, ant = "
             fig.append_trace(trace_magnitude,3,1)
             fig.append_trace(trace_phase,1,3)
             fig.append_trace(trace_IQ,1,1)
-
-            freq_data =np.array ([tx_info["rf"] + tx_info["freq"][i] - fit_param[i]['f0']*1e6 for tt in range(len(noise_points[i]))])
+            try:
+                freq_data =np.array ([tx_info["rf"] + tx_info["freq"][i] - fit_param[i]['f0']*1e6 for tt in range(len(noise_points[i]))])
+            except:
+                freq_data =np.array ([tx_info["rf"] + tx_info["freq"][i] - fit_param[i]['f0']*1e6])
             magdata = linear2db(np.abs(noise_points[i]) *calibrations[i])
 
             if points is None:

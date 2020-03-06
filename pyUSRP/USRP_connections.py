@@ -138,6 +138,7 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
         samples_per_channel = int(metadata['length'] / metadata['channels'])
         dataset = h5fp[dev_name][group_name]["data"]
         errors = h5fp[dev_name][group_name]["errors"]
+        dataset_ext = h5fp[dev_name][group_name]["ext"]
         data_shape = np.shape(dataset)
         data_start = int(index)
         data_end = int(data_start + samples_per_channel)
@@ -168,6 +169,12 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
             packet = np.reshape(data, (samples_per_channel,metadata['channels'])).T
             dataset[:, data_start:data_end] = packet
             dataset.attrs.__setitem__("samples", data_end)
+
+
+            #print_debug("Resizing to %d, writing to %d" % (metadata['packet_number']+1,metadata['packet_number']))
+            dataset_ext.resize((metadata['packet_number']+1,))
+            dataset_ext[metadata['packet_number']] = metadata["ext"]
+
             if data_start == 0:
                 dataset.attrs.__setitem__("start_epoch", time.time())
                 h5fp['raw_data%d'%metadata['usrp_number']].attrs.__setitem__('meas_type',meas_type)
@@ -439,6 +446,7 @@ def Decode_Sync_Header(raw_header, CLIENT_STATUS=CLIENT_STATUS):
         metadata['length'] = int(header[0]['length'])
         metadata['errors'] = int(header[0]['errors'])
         metadata['channels'] = int(header[0]['channels'])
+        metadata['ext'] = int(header[0]['ext'])
         return metadata
     except ValueError:
         if CLIENT_STATUS["keyboard_disconnect"] == False:
@@ -856,7 +864,7 @@ def Sync_RX(CLIENT_STATUS, Sync_RX_condition, USRP_data_queue, USRP_server_addre
         USRP_server_address_data = USRP_IP_ADDR
     if USRP_server_address_data_port is None:
         USRP_server_address_data_port = 61360
-    header_size = 5 * 4 + 1
+    header_size = 6 * 4 + 1
 
     acc_recv_time = []
     cycle_time = []

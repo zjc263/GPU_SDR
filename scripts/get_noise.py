@@ -83,7 +83,11 @@ if __name__ == "__main__":
                 else:
                     tones = []
             except ValueError:
-                u.print_error("Cannot convert tone argument.")
+                try:
+                    tones = [float(c) for c in args.tones[0].split(" ")]
+                    tones = np.asarray(tones)*1e6
+                except:
+                    u.print_error("Cannot convert tone argument.")
 
     rf_freq = args.freq*1e6
 

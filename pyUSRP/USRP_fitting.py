@@ -69,7 +69,7 @@ def complex_of_real(r):
     assert len(r.shape) == 1
     nt = r.size
     assert nt % 2 == 0
-    no = nt / 2
+    no = nt // 2
     z = r[:no] + 1j * r[no:]
     return z
 
@@ -163,8 +163,8 @@ def do_fit(freq, re, im, p0=None):
         B = scale * np.sin(phi)
         D = 0  # m/(2.*np.pi)
 
-        fwmh = FWMH(freq, phase) / 1e6
-        Qr = 10 * f0 / fwmh
+        fwmh = 0.05#FWMH(freq, phase) / 1e6
+        Qr = 1 * f0 / fwmh
         Qe_re = Qr * 2
         Qe_im = 0
         dQe = 1. / (1.j * Qe_im + Qe_re)
@@ -320,7 +320,7 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
     for j in range(len(center)):
         if exclude_center:
             for ii in range(len(mask)):
-                if np.abs(freq[ii] - center[j]) < (int(500000e3/resolution)):
+                if np.abs(freq[ii] - center[j]) < resolution*10: #(int(500000e3/resolution)):
                     mask[ii] = False
                     gradS21[ii] = gradS21[ii-1]
                     center_excl[j].append(ii)
@@ -525,19 +525,20 @@ def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3,
             label_set += "\nMagnitude depth = %.2f dB / %.2f dB" % (depth, Mag_depth_cutoff)
             col = 'red'
 
-        if diagnostic_plots:
+        if False:
             os.chdir(diagnostic_folder)
             fig, ax = pl.subplots(nrows=1, ncols=1)
             fig.suptitle("Peak initialization diagnosic #%d"%iteration_number)
+            patch_error = min(high_index,min(len(freq_),len(magnitudedb)))
             ax.plot(
-                freq_[low_index:high_index],
-                magnitudedb[low_index:high_index],
+                freq_[low_index:patch_error],
+                magnitudedb[low_index:patch_error],
                 label = label_set,
                 color = col
             )
             ax.plot(
-                freq_[low_index:high_index],
-                linear2db(np.abs(zfit)),
+                freq_[low_index:patch_error],
+                linear2db(np.abs(zfit))[:patch_error],
                 label = "fit",
                 color = "k"
             )

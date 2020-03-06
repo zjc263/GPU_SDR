@@ -858,7 +858,7 @@ def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_p
     :param plot_decim: decimate the plots, helps a lot with file size using the plotly backend. Note: may not work well with resonator tag plot.
     :param kwargs:
         - figsize=(xx,yy) inches for matplotlib backends.
-        - add_info = ["..","..",".."] fore commenting each file in the legend.
+        - add_info = ["..","..",".."] for commenting each file in the legend.
         - html only to return a html text instead of nothing in case of plotly backend.
         - title is a string containing the title.
         - att: external attenuation: changes the label in the plot from readout power to on-chip power if given.

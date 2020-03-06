@@ -185,6 +185,9 @@ void Sync_server::format_net_buffer(RX_wrapper input_packet, char* __restrict__ 
     memcpy(&output_buffer[offset], &input_packet.channels, sizeof(input_packet.channels));
     offset += sizeof(input_packet.channels);
 
+    memcpy(&output_buffer[offset], &input_packet.ext_pin, sizeof(input_packet.ext_pin));
+    offset += sizeof(input_packet.ext_pin);
+
     memcpy(&output_buffer[offset], input_packet.buffer, input_packet.length * 2 * sizeof(float));
     //ilen+=input_packet.length/input_packet.channels;
     //std::cout<<"Streaming packet: "<< input_packet.packet_number <<" acc_samp: "<< ilen<<std::endl;
@@ -206,6 +209,7 @@ void Sync_server::tcp_streamer(param* current_settings){
     int header_size = sizeof(incoming_packet.usrp_number) + sizeof(incoming_packet.front_end_code);
     header_size += sizeof(incoming_packet.packet_number) + sizeof(incoming_packet.length);
     header_size += sizeof(incoming_packet.errors) + sizeof(incoming_packet.channels);
+    header_size += sizeof(incoming_packet.ext_pin);
 
 
     //maximum transmission buffer size is only reached when no decimation is applied.

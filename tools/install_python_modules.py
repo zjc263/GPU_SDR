@@ -6,9 +6,9 @@ import os
 def run():
     try:
         import os,sys,subprocess,importlib
-        if os.getuid()!= 0:
-            print "Script must have admin privilege. Try running with sudo."
-            exit(-1)
+        # if os.getuid()!= 0:
+        #     print "Script must have admin privilege. Try running with sudo."
+        #     exit(-1)
     except ImportError:
         print("\033[1;31mERROR\033[0m: Before running this script you must install the os, sys, subprocess and importlib packages!")
         exit()
@@ -30,15 +30,16 @@ def run():
         "peakutils",
     ]
     err = 0
-    try:
-        ret = os.system("pip install -U pip")
-    except SystemExit as e:
-        err+=1
-        print("\033[1;31mERROR\033[0m: Cannot upgrade pip.")
-        return
+    # try:
+    #     ret = os.system("pip install -U pip")
+    # except SystemExit as e:
+    #     err+=1
+    #     print("\033[1;31mERROR\033[0m: Cannot upgrade pip.")
+    #     return
     for module in modulelist:
         try:
-            ret = subprocess.call([sys.executable, "-m", "pip", "install", module])
+            #ret = subprocess.call([sys.executable, "-m", "pip", "install", '-user', module, '--upgrade'])
+            ret = os.system("pip3 install --user %s --upgrade" % module)
             if ret !=0:
                 try:
                     importlib.import_module(module)

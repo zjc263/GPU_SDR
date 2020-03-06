@@ -63,7 +63,8 @@ header_type = np.dtype([
     ('packet_number', np.int32),
     ('length', np.int32),
     ('errors', np.int32),
-    ('channels', np.int32)
+    ('channels', np.int32),
+    ('ext', np.int32)
 ])
 
 # data type expected for the buffer

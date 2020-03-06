@@ -764,7 +764,13 @@ class global_parameter(object):
                     self.parameters[ant_key]['data_mem_mult'] = int(self.parameters[ant_key]['data_mem_mult'])
 
                     if ((self.parameters[ant_key]['wave_type'][0] == "DIRECT")):
-                        self.parameters[ant_key]['data_mem_mult'] = max(np.ceil(len(self.parameters[ant_key]['wave_type'])/max(float(self.parameters[ant_key]['decim']),1)),1)
+                        self.parameters[ant_key]['data_mem_mult'] = int(max(np.ceil(len(self.parameters[ant_key]['wave_type'])/max(float(self.parameters[ant_key]['decim']),1)),1))
+
+                    self.parameters[ant_key]['bw'] = int(self.parameters[ant_key]['bw'])
+                    self.parameters[ant_key]['gain'] = int(self.parameters[ant_key]['gain'])
+                    self.parameters[ant_key]['delay'] = float(self.parameters[ant_key]['delay'])
+                    # print_debug("Converting delay and bw")
+
 
                 # case in which it is OFF:
                 else:
@@ -828,6 +834,28 @@ class global_parameter(object):
         Returns:
             - the string to be filled with the JSON
         '''
+        # def dict_generator(indict, pre=None):
+        #     pre = pre[:] if pre else []
+        #     if isinstance(indict, dict):
+        #         for key, value in indict.items():
+        #             if isinstance(value, dict):
+        #                 for d in dict_generator(value, pre + [key]):
+        #                     yield d
+        #             elif isinstance(value, list) or isinstance(value, tuple):
+        #                 for v in value:
+        #                     for d in dict_generator(v, pre + [key]):
+        #                         yield d
+        #             else:
+        #                 yield pre + [key, value]
+        #     else:
+        #         yield pre + [indict]
+        #
+        # print(self.parameters)
+        # for x in dict_generator(self.parameters):
+        #     print(x)
+        #     for y in x:
+        #         print(type(y))
+        #     print("")
         return json.dumps(self.parameters)
 
     def get_active_rx_param(self):
@@ -1097,6 +1125,8 @@ def Param_to_H5(H5fp, parameters_class, trigger = None, **kwargs):
                                     chunks=True)  # , compression = H5PY_compression
             rx_group.create_dataset("errors", (0, 0), dtype=np.dtype(np.int64),
                                     maxshape=(None, None))  # , compression = H5PY_compression
+            rx_group.create_dataset("ext", (0,), dtype=np.dtype(np.int32),
+                                    maxshape=(None,))
 
             if trigger is not None:
                 trigger_ds = rx_group.create_dataset("trigger", shape = (0,), dtype=np.dtype(np.int64), maxshape=(None,),chunks=True)
@@ -1120,6 +1150,21 @@ def Param_to_H5(H5fp, parameters_class, trigger = None, **kwargs):
     else:
         print_error("Cannot initialize H5 file without checked parameters.self_check() failed.")
         return []
+
+def get_ext_dataset(filename, ant = None, usrp_number = 0):
+    '''
+    Return the external group of a given file (taken from pin 4 of the aux I/O of the USRP x300)
+    '''
+    filename = format_filename(filename)
+    f = bound_open(filename)
+    if ant is None:
+        ant = "A_RX2"
+    dset = f["raw_data%d"%usrp_number][ant]['ext']
+    ret = np.array(dset)
+    f.close()
+    return ret
+
+
 
 
 def is_VNA_analyzed(filename, usrp_number = 0):

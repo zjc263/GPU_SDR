@@ -248,7 +248,8 @@ class hardware_manager{
             threading_condition* wait_condition,    //before joining wait for that condition
             preallocator<float2>* memory,           //custom memory preallocator
             uhd::rx_streamer::sptr &rx_stream,      //associated usrp streamer
-            char front_end
+            char front_end,
+            uhd::usrp::multi_usrp::sptr &usrp
 
         );
 };

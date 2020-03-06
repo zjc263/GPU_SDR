@@ -12,11 +12,11 @@ except ImportError:
 
 import argparse
 
-def run(backend, files, welch, dbc, att):
+def run(backend, files, welch, dbc, att, max_f):
     for f in files:
         u.calculate_noise(f, verbose = True, welch = max(welch,1), dbc = dbc, clip = 0.1)
         pass
-    print(u.plot_noise_spec(files, channel_list=None, max_frequency=1000, title_info=None, backend=backend,
+    print(u.plot_noise_spec(files, channel_list=None, max_frequency=max_f, title_info=None, backend=backend,
                     cryostat_attenuation=att, auto_open=True, output_filename=None, add_info = None))
 
 if __name__ == "__main__":
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('--welch', '-w', help='Whelch factor relative to timestream length so that welch factor is len(timestream)/this_arg', type=int, default= 5)
     parser.add_argument('--dbc', '-dbc', help='Analyze and plot in dBc or not', action="store_true")
     parser.add_argument('--att', '-a', help='Total attenuation', type=int, default= 0)
-
+    parser.add_argument('--max_f', '-f', help='Max frequency to plot in Hz', type=int, default= 10000)
 
     args = parser.parse_args()
 
@@ -41,4 +41,4 @@ if __name__ == "__main__":
 
     files = glob.glob("USRP_Noise*.h5")
 
-    run(backend = args.backend, files = files, welch = args.welch, dbc = args.dbc, att = args.att)
+    run(backend = args.backend, files = files, welch = args.welch, dbc = args.dbc, att = args.att, max_f = args.max_f)

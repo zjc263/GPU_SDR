@@ -7,7 +7,7 @@ except ImportError:
         sys.path.append('..')
         import pyUSRP as u
     except ImportError:
-        print ()"Cannot find the pyUSRP package")
+        print ("Cannot find the pyUSRP package")
 import argparse
 
 if __name__ == "__main__":
@@ -41,11 +41,14 @@ if __name__ == "__main__":
     while not folder_ok:
         try:
             os.mkdir(subfolder_name)
-            os.chdir(args.folder)
+            os.chdir(subfolder_name)
             folder_ok = True
         except OSError:
             sfc +=1
             subfolder_name = "swipe_"+str(int(sfc))
+
+        if sfc> 100:
+            raise ValueError("For security reason this is limited to 100")
 
     if args.gain is None:
         gains = [0,]
@@ -83,12 +86,13 @@ if __name__ == "__main__":
     #replicate the VNA measure (WARNING: DOES NOT SUPPORT ITERATIONS)
     u.print_debug("Replicating seed VNA measure to ensure phase coherency...")
     VNA_seed_info = u.get_rx_info(args.VNA, ant=ant)
+    VNA_seed_info_tx = u.get_tx_info(args.VNA)
     seed_rf, seed_tones = u.get_tones(args.VNA)
     seed_start_f = VNA_seed_info['freq'][0]
     seed_end_f = VNA_seed_info['chirp_f'][0]
     seed_measure_t = VNA_seed_info['chirp_t'][0]
     seed_points = VNA_seed_info['swipe_s'][0]
-    seed_gain = VNA_seed_info['gain']
+    seed_gain = VNA_seed_info_tx['gain']
     seed_rate = VNA_seed_info['rate']
     seed_ntones = len(seed_tones) + len(guard_tones)
     u.print_debug("Adjusting power for %d tone readout..."%seed_ntones)
@@ -99,7 +103,7 @@ if __name__ == "__main__":
 
     #measure line delay
 
-    filename = u.measure_line_delay(seed_rate, seed_rf, str(args.frontend), USRP_num=0, tx_gain=0, rx_gain=0, output_filename=None, compensate = True, duration = 0.1)
+    filename = u.measure_line_delay(seed_rate, seed_rf, str(args.frontend), USRP_num=0, tx_gain=seed_gain, rx_gain=0, output_filename=None, compensate = True, duration = 0.1)
     delay = u.analyze_line_delay(filename, True)
     u.write_delay_to_file(filename, delay)
     u.load_delay_from_file(filename)

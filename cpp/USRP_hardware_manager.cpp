@@ -3,6 +3,16 @@
 auto start = std::chrono::system_clock::now();
 
 
+// set up our masks, defining the pin numbers
+#define AMP_GPIO_MASK   (1 << 6)
+#define MAN_GPIO_MASK   (1 << 4)
+#define ATR_MASKS       (AMP_GPIO_MASK | MAN_GPIO_MASK)
+// set up our values for ATR control: 1 for ATR, 0 for manual
+#define ATR_CONTROL     (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
+// set up the GPIO directions: 1 for output, 0 for input
+#define GPIO_DDR        (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
+
+
 //! @brief Reinitialize hardware pointers.
 //! this is an attempt to fix the 83 measures crash of the UHD library (bug still present in uhd 3.15)
 void hardware_manager::reset_usrp_host(){
@@ -111,6 +121,9 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
         //set the clock reference
         main_usrp->set_clock_source(settings->clock_reference);
+
+				main_usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
+				main_usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
 
     }else{
         A_sw_loop_queue = new tx_queue(SW_LOOP_QUEUE_LENGTH);
@@ -446,7 +459,9 @@ void hardware_manager::start_rx(
                     wait_condition,
                     memory,
                     A_rx_stream,
-                    'A'));
+                    'A',
+										main_usrp
+									));
                 Thread_Prioriry(*A_rx_thread, 99, thread_op);
                 SetThreadName(A_rx_thread, "A_rx_thread");
             }else if(front_end=='B'){
@@ -456,7 +471,9 @@ void hardware_manager::start_rx(
                     wait_condition,
                     memory,
                     B_rx_stream,
-                    'B'));
+                    'B',
+										main_usrp
+									));
                 Thread_Prioriry(*B_rx_thread, 99, thread_op);
                 SetThreadName(B_rx_thread, "B_rx_thread");
             }
@@ -1379,6 +1396,7 @@ void hardware_manager::software_rx_thread(
                 warapped_buffer.length = current_settings->buffer_len;
                 warapped_buffer.errors = 0;
                 warapped_buffer.front_end_code = front_end_c;
+								warapped_buffer.ext_pin = 0;
                 while(not Rx_queue->push(warapped_buffer))std::this_thread::sleep_for(std::chrono::microseconds(1));
                 acc_samp += current_settings->buffer_len;
             }else{
@@ -1406,7 +1424,8 @@ void hardware_manager::single_rx_thread(
     threading_condition* wait_condition,    //before joining wait for that condition
     preallocator<float2>* memory,            //custom memory preallocator
     uhd::rx_streamer::sptr &rx_stream ,     //the streamer to usrp
-    char front_end                          //front end code for operation accountability
+    char front_end,                          //front end code for operation accountability
+		uhd::usrp::multi_usrp::sptr &usrp
 
 ){
 
@@ -1565,6 +1584,8 @@ void hardware_manager::single_rx_thread(
                 }
             }
 
+						//std::cout<< "Reading: " << usrp->get_gpio_attr("FP0","READBACK") << std::endl;
+						warapped_buffer.ext_pin = usrp->get_gpio_attr("FP0","READBACK");
 
             //update total number of accumulated samples
             acc_samp += num_rx_samps;
@@ -1593,6 +1614,8 @@ void hardware_manager::single_rx_thread(
 
         }catch (boost::thread_interrupted &){ active = false; }
     }
+
+
 
     rx_stream->issue_stream_cmd(stop_cmd);
 

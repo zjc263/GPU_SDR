@@ -221,6 +221,7 @@ struct RX_wrapper{
     int length;         //length of the buffer
     int errors;         //how many errors occured
     int channels;
+    int ext_pin; //pin4 from the USRP I/O in the x300 case
 };
 
 std::string get_front_end_name(char code);

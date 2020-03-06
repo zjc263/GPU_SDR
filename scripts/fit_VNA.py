@@ -21,7 +21,7 @@ def run(file_list, backend, attenuation, N_peaks, smoothing, a_cutoff, threshold
             u.extimate_peak_number(file_list[i], threshold = threshold, smoothing = smoothing, peak_width = peak_width, verbose = False, exclude_center = True, diagnostic_plots = True)
         else:
             u.initialize_peaks(file_list[i], N_peaks = N_peaks[i], a_cutoff = a_cutoff, smoothing = smoothing, peak_width = peak_width, Qr_cutoff=4e3, verbose = True, exclude_center = True, diagnostic_plots = True,  Mag_depth_cutoff = Mag_depth_cutoff)
-        u.vna_fit(file_list[i], p0=None, fit_range = peak_width, verbose = False)
+        u.vna_fit(file_list[i], p0=None, fit_range = peak_width/3, verbose = False)
 
         # all resonator plotted on a single static png can be overwelming
         if backend == 'matplotlib':

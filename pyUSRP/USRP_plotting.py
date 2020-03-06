@@ -333,3 +333,27 @@ def plot_raw_data(filenames, decimation=None, displayed_samples=None, low_pass=N
         plotly.offline.plot(fig, filename=final_filename, auto_open=auto_open)
 
     return final_filename
+
+
+def plot_external_dataset(filename, ant = None, usrp_number = 0):
+    '''
+    Quick plotting function for the external dataset.
+    Nothing fancy so no different backends and stuff.
+    '''
+    filename = format_filename(filename)
+    info = get_rx_info(filename, ant=None)
+    rate = info['rate']/float(info['buffer_len'])
+    data = get_ext_dataset(filename, ant, usrp_number)
+
+    fig, axs = pl.subplots(2, 1)
+    pl.suptitle('External pin4 from %s\nSampling rate: %.1f' % (filename,rate))
+
+    axs[0].plot(range(len(data)), data)
+    axs[0].set_xlabel('Packet number')
+    axs[0].set_ylabel('Pin4 [Digital]')
+
+    axs[1].psd(data, NFFT=len(data), Fs=rate)
+
+    final_filename =  "External_"+os.path.splitext(filename)[1] + '.png'
+    fig.savefig(final_filename, bbox_inches="tight")
+    pl.close(fig)

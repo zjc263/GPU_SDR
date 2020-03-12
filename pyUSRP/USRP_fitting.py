@@ -164,7 +164,7 @@ def do_fit(freq, re, im, p0=None):
         D = 0  # m/(2.*np.pi)
 
         fwmh = 0.05#FWMH(freq, phase) / 1e6
-        Qr = 1 * f0 / fwmh
+        Qr = 1000# * f0 / fwmh
         Qe_re = Qr * 2
         Qe_im = 0
         dQe = 1. / (1.j * Qe_im + Qe_re)
@@ -376,6 +376,53 @@ def extimate_peak_number(filename, threshold = 0.2, smoothing = None, peak_width
 
     print(("Initialize_peaks() found " +str(len(max_diag))+ " resonators."))
 
+def init_from_noise(noise_file, vna_file, guard_tones = None, ant = "A_TXRX", usrp_number = 0):
+    '''
+    Initilize a VNA file from the tones in a noise file.
+
+    Arguments:
+        - noise_file: filename of the noise file containing the source tones (single tone transmission).
+        - vna_file: filename of the VNA file to initialize.
+        - guard_tones: list containing the guard tones not to initialize in MHz (approximated is ok)
+        - ant: transmission antenna name.
+        - usrp_number: usrp server side number used to stream the tones.
+    '''
+    # Standard checks
+    noise_file = format_filename(noise_file)
+    vna_file = format_filename(vna_file)
+
+    # Get the tone information from noise file
+    f = bound_open(noise_file)
+    tones = f["raw_data%d"%int(usrp_number)][ant].attrs.get('freq')
+    rf = f["raw_data%d"%int(usrp_number)][ant].attrs.get('rf')
+    tones = (tones + rf)/1e6
+
+    # Subtract the guard tones
+    if guard_tones is not None:
+        for gt in guard_tones:
+            index = find_nearest(tones,gt)
+            print_debug("Removing guard tone %.2f MHz..." % tones[index])
+            tones = np.delete(tones, index)
+
+    print_debug("Initializing tones: "+np.array2string(tones, precision=2, separator=" MHz, "))
+    f.close()
+
+    # Attach the initialization to the frequency axis of S21
+    print_debug("Writing initialization in the VNA file..")
+    fv = h5py.File(vna_file,'r+')
+
+    try:
+        reso_grp = fv.create_group("Resonators")
+    except ValueError:
+        print_warning("Overwriting resonator initialization attribute")
+        del fv["Resonators"]
+        reso_grp = fv.create_group("Resonators")
+
+    wierdly_formatted_tones = [[t*1e6] for t in tones]
+
+    reso_grp.attrs.__setitem__("tones_init", wierdly_formatted_tones)
+
+    fv.close()
 
 def initialize_peaks(filename, N_peaks = 1, smoothing = None, peak_width = 90e3, Qr_cutoff=5e3, a_cutoff = 10, Mag_depth_cutoff = 0.15, verbose = False, exclude_center = True, diagnostic_plots = False):
     """

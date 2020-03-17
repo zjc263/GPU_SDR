@@ -103,8 +103,10 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
 
 				//uhd::device_addr_t args("addr=192.168.30.2,second_addr=192.168.40.2");
-				device_arguments = default_arguments;
-				if(device_arguments.compare(default_arguments)==0){
+				//
+				std::cout<< "device_arguments is: "<< device_arguments<<std::endl;
+				if(device_arguments.compare("noarg")==0){
+					device_arguments = default_arguments;
 					uhd::device_addr_t args(device_arguments);
 					main_usrp = uhd::usrp::multi_usrp::make(args);
 					std::cout<< "Creating device with arguments: "<<device_arguments <<std::endl;

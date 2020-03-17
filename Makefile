@@ -60,7 +60,7 @@ $(OBJ_FILES): $(SRC_FILES) $(HPP_FILES) $(CUDA_HPP_FILES)
 $(CUDA_OBJ_FILES): $(CUDA_SRC_FILES) $(CUDA_HPP_FILES)
 	$(info Compiling $(patsubst $(OBJ_DIR)/%.o,$(SRC_DIR)/%.cu,$@) ...)
 	@mkdir -p $(OBJ_DIR)
-	@$(NVCC) $(CINCLUDE) $(NVINCLUDE) -dc -o $@ $(patsubst $(OBJ_DIR)/%.o,$(SRC_DIR)/%.cu,$@)
+	@$(NVCC) $(CINCLUDE)  -c -o $@ $(patsubst $(OBJ_DIR)/%.o,$(SRC_DIR)/%.cu,$@)
 
 clean:
 	$(info Cleaning all...)

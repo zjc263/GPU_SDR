@@ -69,10 +69,10 @@ if __name__ == "__main__":
     # Set the variables for the scans
 
     # Should be retrived from server properties, communication scheme not implemented yet
-    DCARD_ANALOG_BW = 120e6
+    DCARD_ANALOG_BW = 20e6
 
     # Should as well be setted with a bechmark_rate-like automatic program
-    SYSTEM_MAX_RATE = 200e6
+    SYSTEM_MAX_RATE = 10e6
 
     # This could become a user argument
     FILTER_LENGTH = 10000
@@ -168,6 +168,12 @@ if __name__ == "__main__":
     freq, S21 =  u.get_VNA_data(vna_filename, calibrated = True, usrp_number = 0)
     baseband_freq_abs = np.abs(freq - CENTRAL_FREQUENCY)
     select_vector = np.logical_and(baseband_freq_abs<FLAT_HALF_BW , baseband_freq_abs>SPIKE_HALF_BW)
+    print("Excluding first and last %d points."%int(len(select_vector)*0.2))
+    for i in range(int(len(select_vector)*0.2)):
+            select_vector[i] = 0
+            select_vector[-i] = 0
+
+    print(select_vector)
     current_level = u.linear2db(np.abs(np.mean(S21[select_vector])))
     difference = -(current_level + args.loopback)
     calculated_calibration = u.db2linear(difference)

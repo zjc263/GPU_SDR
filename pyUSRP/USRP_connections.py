@@ -509,6 +509,13 @@ def Decode_Async_payload(message):
         CLIENT_STATUS["END_OF_MEASURE"] = True
         EOM_cond.release()
 
+    if atype == 'server_info':
+        print_debug("Server info on USRP %s received" % res['number'])
+
+        SERVER_INFO['devices_count'] = max(SERVER_INFO['devices_count'],int(res['number']))
+        SERVER_INFO['devices_count'] = res['props']
+        print_debug(res['props'])
+
 
 def Encode_async_message(payload):
     '''

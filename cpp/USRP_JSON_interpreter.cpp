@@ -447,6 +447,23 @@ std::string server_ack(std::string payload){
     return res.str();
 }
 
+
+//! @brief Format the USRP information to be sent to the client.
+std::string format_usrp_info(hardware_manager *usrp, int number = 0){
+    std::stringstream res;
+    boost::property_tree::ptree response;
+    response.put("type","server_info");
+    // Get the info from the hardware_manager
+    response.put("number",number);
+    if(not usrp->sw_loop){
+      response.put("props",usrp->main_usrp->get_pp_string());
+    }else{
+      response.put("props","Device: software_loop");
+    }
+    boost::property_tree::write_json(res,response);
+    return res.str();
+}
+
 std::string server_nack(std::string payload){
     std::stringstream res;
     boost::property_tree::ptree response;

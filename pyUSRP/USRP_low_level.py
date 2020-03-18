@@ -120,6 +120,10 @@ CURRENT_CALIBRATION = manager.dict()
 CURRENT_CALIBRATION['tmp_calib'] = 2.249889
 #USRP_calibration = 0.317
 
+# Server relted info
+SERVER_INFO = manager.dict()
+SERVER_INFO['devices_count'] = 0
+
 def change_calibration(new_calibration):
     '''
     Temporary patch to manage the calibration of a single card.

@@ -72,7 +72,8 @@ int main(int argc, char **argv){
 
     // Send USRP info
     json_res = new std::string(format_usrp_info(&usrp, 0));
-    if(async.connected()){async.send_async(json_res);}
+    async.send_async(json_res);
+
 
     while(active){
         BOOST_LOG_TRIVIAL(info) << "EVENT_START:92; Main loop";

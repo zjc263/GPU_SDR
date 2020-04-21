@@ -123,6 +123,10 @@ CURRENT_CALIBRATION['tmp_calib'] = 2.249889
 # Server relted info
 SERVER_INFO = manager.dict()
 SERVER_INFO['devices_count'] = 0
+SERVER_INFO['usrp_props'] = "no_info"
+SERVER_INFO['gpu_props'] = "no_info"
+SERVER_INFO['last_ping'] = "-1"
+SERVER_INFO['first_time_async_connect'] = False
 
 def change_calibration(new_calibration):
     '''

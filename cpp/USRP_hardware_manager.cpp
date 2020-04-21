@@ -4,13 +4,13 @@ auto start = std::chrono::system_clock::now();
 
 
 // set up our masks, defining the pin numbers
-#define AMP_GPIO_MASK   (1 << 6)
-#define MAN_GPIO_MASK   (1 << 4)
-#define ATR_MASKS       (AMP_GPIO_MASK | MAN_GPIO_MASK)
-// set up our values for ATR control: 1 for ATR, 0 for manual
-#define ATR_CONTROL     (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
-// set up the GPIO directions: 1 for output, 0 for input
-#define GPIO_DDR        (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
+// #define AMP_GPIO_MASK   (1 << 6)
+// #define MAN_GPIO_MASK   (1 << 4)
+// #define ATR_MASKS       (AMP_GPIO_MASK | MAN_GPIO_MASK)
+// // set up our values for ATR control: 1 for ATR, 0 for manual
+// #define ATR_CONTROL     (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
+// // set up the GPIO directions: 1 for output, 0 for input
+// #define GPIO_DDR        (AMP_GPIO_MASK & ~MAN_GPIO_MASK)
 
 
 //! @brief Reinitialize hardware pointers.
@@ -76,8 +76,10 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
     //in any case a gpu is necessary
     cudaSetDevice(settings->GPU_device_index);
-    cudaDeviceProp props;
-    cudaGetDeviceProperties(&props, settings->GPU_device_index);
+    props.resize(1);
+    cudaGetDeviceProperties(&(props[0]), settings->GPU_device_index);
+
+
 
 
     if(not sw_loop){
@@ -91,11 +93,11 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
             dev_addrs = uhd::device::find(hint);
             std::cout<<"."<<std::flush;
-            usleep(1e6);
+            // usleep(1e6);
         }
 
 
-        std::cout<<"Device found and assigned to GPU "<< props.name <<" ("<< settings->GPU_device_index <<")"<<std::endl;
+        std::cout<<"Device found and assigned to GPU "<< props[0].name <<" ("<< settings->GPU_device_index <<")"<<std::endl;
         //for(size_t ii = 0; ii<dev_addrs.size(); ii++){
         //    std::cout<<dev_addrs[ii].to_pp_string()<<std::endl;
         //}
@@ -122,10 +124,10 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 				pprint_board_prop();
 
         //set the clock reference
-        main_usrp->set_clock_source(settings->clock_reference);
+        //main_usrp->set_clock_source(settings->clock_reference);
 
-				main_usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
-				main_usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
+				//main_usrp->set_gpio_attr("FP0", "CTRL", ATR_CONTROL, ATR_MASKS);
+				//main_usrp->set_gpio_attr("FP0", "DDR", GPIO_DDR, ATR_MASKS);
 
     }else{
         A_sw_loop_queue = new tx_queue(SW_LOOP_QUEUE_LENGTH);

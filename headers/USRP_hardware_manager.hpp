@@ -177,6 +177,10 @@ class hardware_manager{
         //array of usrp addresses
         uhd::device_addrs_t dev_addrs;
 
+        // Ettus N321 has the possibility of exporting the LO.
+        // This variable declare it as a valid configuration.
+        bool flag_export_lo = false;
+
         //last configuration of the usrp device
         usrp_param config;
 

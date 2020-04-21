@@ -97,9 +97,15 @@ using namespace logging::trivial;
 
 //buffer safety lengths
 #define MAX_USEFULL_BUFFER 6000000
-#define MIN_USEFULL_BUFFER 50000
+#define MIN_USEFULL_BUFFER 100
 
 #define DEFAULT_BUFFER_LEN 1000000
+
+//Export LO channel
+#define EXPORT_LO_CHANNEL 1
+
+//Import LO channel
+#define IMPORT_LO_CHANNEL 4
 
 //! @brief Port used for client server communication.
 extern int TCP_SYNC_PORT;

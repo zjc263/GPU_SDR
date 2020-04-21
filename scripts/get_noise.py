@@ -55,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--trigger', '-tr', help='String describing the trigger to use. Default is no trigger. Use the name of the trigger classes defined in the trigger module with no parenthesis', type=str)
     parser.add_argument('--DAC_division', '-dd', help='Divide the DAC to use only 1./this for each tone. Must be >= len(tones).', type=int, default=None)
     parser.add_argument('--delay', '-dy', help='Optional delay file where to souce delay information', type=str)
+    parser.add_argument('--addr', '-addr', help='Addredd of the server', type=str, default = None)
 
 
     args = parser.parse_args()
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     if args.random is not None:
         tones = [random.uniform(-args.rate*1e6/2, args.rate*1e6/2) for ui in range(args.random)]
 
-    if not u.Connect():
+    if not u.Connect(addrss = args.addr):
         u.print_error("Cannot find the GPU server!")
         exit()
 

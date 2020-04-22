@@ -80,7 +80,7 @@ class trigger_example(object):
             raise ValueError(err_msg)
 
         self.signal_accumulator = 0
-        self.std_threshold_multiplier = 1.5
+        self.std_threshold_multiplier = 10.
         self.trigget_count = 0
 
     def dataset_init(self, antenna_group):
@@ -110,7 +110,7 @@ class trigger_example(object):
 
         current_len_trigger = len(self.trigger_timing) # check current length of the dset
         (self.trigger_timing).resize((self.trigget_count,)) # update the length (expensive disk operation ~500 cycles on x86 intel, separate client server if rate>100Msps)
-        self.trigger_timing[self.trigget_count-1] = time.time() # write the data of interest
+        self.trigger_timing[self.trigget_count-1] = time.time() - self.start_time # write the data of interest
 
         current_len_trigger = len(self.thresholds)
         (self.thresholds).resize((self.trigget_count,))
@@ -143,9 +143,11 @@ class trigger_example(object):
         if metadata['packet_number'] < 2:
             self.signal_accumulator = np.std(data)
             metadata['length'] = 0
-            return [], metadata
+            self.start_time = time.time()
+            return [], metadata # This line does not write any data to disk. Note that you can still write the packet and save the trigger info.
         elif self.signal_accumulator*self.std_threshold_multiplier < np.std(data):
-            print("Triggered!")
+            current_time = time.time() - self.start_time
+            print("  Triggered at %.2f seconds with a std of %.3e" % (current_time, self.signal_accumulators))
             self.write_trigger(metadata)
             return data, metadata
         else:

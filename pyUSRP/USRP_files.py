@@ -1129,18 +1129,12 @@ def Param_to_H5(H5fp, parameters_class, trigger = None, **kwargs):
                                     maxshape=(None,))
 
             if trigger is not None:
-                trigger_ds = rx_group.create_dataset("trigger", shape = (0,), dtype=np.dtype(np.int64), maxshape=(None,),chunks=True)
+                #trigger_ds = rx_group.create_dataset("trigger", shape = (0,), dtype=np.dtype(np.int64), maxshape=(None,),chunks=True)
+                trigger_grp = rx_group.create_group("trigger")
                 trigger_name = str(trigger.__class__.__name__)
-                trigger_ds.attrs.create("trigger_fcn", data = trigger_name)
+                trigger_grp.attrs.create("trigger_fcn", data = trigger_name)
 
-                if trigger_name == "amplitude_trigger":
-                    trigger_ds.attrs.create("bounds", data = trigger.bounds)
-                    trigger_ds.attrs.create("nglitch", data = trigger.nglitch)
-                    trigger_ds.attrs.create("glitch_indices", data = trigger.glitch_indices)
-                    trigger_ds.attrs.create("samples_per_packet", data = trigger.samples_per_packet)
-                    trigger_ds.attrs.create("triggering_chs", data=trigger.channels)
-
-                trigger.dataset_init(rx_group)
+                trigger.dataset_init(trigger_grp)
 
             for param_name in parameters_class.parameters[ant_name]:
                 rx_group.attrs.create(name=param_name, data=parameters_class.parameters[ant_name][param_name])

@@ -476,7 +476,7 @@ def Decode_Async_payload(message):
     '''
     Decode asynchronous payloads coming from the GPU server
     '''
-    global ERROR_STATUS, REMOTE_FILENAME, EOM_cond
+    global ERROR_STATUS, REMOTE_FILENAME, EOM_cond, first_time_connect
 
     try:
         res = json.loads(message)
@@ -510,11 +510,16 @@ def Decode_Async_payload(message):
         EOM_cond.release()
 
     if atype == 'server_info':
-        print_debug("Server info on USRP %s received" % res['number'])
-
-        SERVER_INFO['devices_count'] = max(SERVER_INFO['devices_count'],int(res['number']))
-        SERVER_INFO['devices_count'] = res['props']
-        print_debug(res['props'])
+        if(not SERVER_INFO['first_time_async_connect']):
+            SERVER_INFO['first_time_async_connect'] = False
+            print_debug("Server info on USRP %s received" % res['number'])
+            SERVER_INFO['devices_count'] = max(SERVER_INFO['devices_count'],int(res['number']))
+            SERVER_INFO['usrp_props'] = res['props']
+            SERVER_INFO['gpu_props'] = "GPU # %d\n\tName: %s\n\tBandwidth: %s\n\tClock rate: %s"\
+                % (int(res['gpu_number']), res['gpu_name'],res['gpu_bw'],res['gpu_clock_rate'])
+            print_debug(res['props'])
+            print_debug("GPU properties: %s" % SERVER_INFO['gpu_props'])
+        SERVER_INFO['last_ping'] = time.time()
 
 
 def Encode_async_message(payload):

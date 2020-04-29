@@ -454,6 +454,8 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
     else:
         output_filename = str(output_filename)
 
+    buffer_len = int(1e6)
+
     print(("Begin noise acquisition, file %s ..."%output_filename))
 
     if measure_t <= 0:
@@ -548,12 +550,12 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         noise_command = global_parameter()
 
         noise_command.set(TX_frontend, "mode", "TX")
-        noise_command.set(TX_frontend, "buffer_len", 1e6)
+        noise_command.set(TX_frontend, "buffer_len", buffer_len)
         noise_command.set(TX_frontend, "gain", tx_gain)
         noise_command.set(TX_frontend, "delay", 1)
         noise_command.set(TX_frontend, "samples", number_of_samples)
         noise_command.set(TX_frontend, "rate", rate)
-        noise_command.set(TX_frontend, "bw", 2 * rate)
+        noise_command.set(TX_frontend, "bw", 1e9)
         #noise_command.set(TX_frontend, 'tuning_mode', 0)
         noise_command.set(TX_frontend, "wave_type", ["TONES" for x in tones])
         noise_command.set(TX_frontend, "ampl", amplitudes)
@@ -565,12 +567,12 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
 
         noise_command.set(RX_frontend, "mode", "RX")
         #noise_command.set(RX_frontend, 'tuning_mode', 0)
-        noise_command.set(RX_frontend, "buffer_len", 1e6)
+        noise_command.set(RX_frontend, "buffer_len", buffer_len)
         noise_command.set(RX_frontend, "gain", 0)
         noise_command.set(RX_frontend, "delay", 1 + delay)
         noise_command.set(RX_frontend, "samples", number_of_samples)
         noise_command.set(RX_frontend, "rate", rate)
-        noise_command.set(RX_frontend, "bw", 2 * rate)
+        noise_command.set(RX_frontend, "bw", 1e9)
 
         noise_command.set(RX_frontend, "wave_type", ["TONES" for x in tones])
         noise_command.set(RX_frontend, "freq", tones)
@@ -583,7 +585,7 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         noise_command.set(RX_frontend, "decim", 0)
 
     elif mode =="DIRECT":
-        buffer_len = int(1e6)
+
         decimation = int(decimation)
         number_of_samples = rate * measure_t
         if decimation != 0:
@@ -609,8 +611,8 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         noise_command.set(TX_frontend, "delay", 1)
         noise_command.set(TX_frontend, "samples", number_of_samples)
         noise_command.set(TX_frontend, "rate", rate)
-        noise_command.set(TX_frontend, "bw", 2 * rate)
-        #noise_command.set(TX_frontend, 'tuning_mode', 0)
+        noise_command.set(TX_frontend, "bw", 1e9)
+        noise_command.set(TX_frontend, 'tuning_mode', 0)
         noise_command.set(TX_frontend, "wave_type", ["TONES" for x in tones])
         noise_command.set(TX_frontend, "ampl", amplitudes)
         noise_command.set(TX_frontend, "freq", tones)
@@ -620,13 +622,13 @@ def get_tones_noise(tones, measure_t, rate, decimation = None, amplitudes = None
         noise_command.set(TX_frontend, "fft_tones", 100)
 
         noise_command.set(RX_frontend, "mode", "RX")
-        #noise_command.set(RX_frontend, 'tuning_mode', 0)
+        noise_command.set(RX_frontend, 'tuning_mode', 0)
         noise_command.set(RX_frontend, "buffer_len", buffer_len)
         noise_command.set(RX_frontend, "gain", 0)
         noise_command.set(RX_frontend, "delay", 1 + delay)
         noise_command.set(RX_frontend, "samples", number_of_samples)
         noise_command.set(RX_frontend, "rate", rate)
-        noise_command.set(RX_frontend, "bw", 2 * rate)
+        noise_command.set(RX_frontend, "bw", 1e9)
 
         noise_command.set(RX_frontend, "wave_type", ["DIRECT" for x in tones])
         noise_command.set(RX_frontend, "freq", tones)

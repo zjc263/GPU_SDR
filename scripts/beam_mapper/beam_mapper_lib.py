@@ -168,7 +168,6 @@ def build_time_axis(filename, front_end = 'A_RX2', verbose = True):
 
     return np.asarray([data_t_start + x*(1./data_rate) for x in range(data_len)])
 
-
 def check_beam_embedded(filename):
     '''
     Check if the h5 file containing noise data has the beam data embedded as group.

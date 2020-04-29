@@ -45,7 +45,7 @@ N_CORES = 10
 parallel_backend = 'multiprocessing'
 
 # usrp output power at 0 tx gain
-USRP_power = -6.00
+USRP_power = +20
 
 # USRP rates that does not cause additional CIC filtering
 USRP_accepted_rates = [int(1e6), int(2e6), int(5e6), int(1e7), int(2e7), int(5e7), int(1e8), int(2e8)]
@@ -117,12 +117,16 @@ CLIENT_STATUS["END_OF_MEASURE"] = False
 
 # USRP calibration for float units in Vpp
 CURRENT_CALIBRATION = manager.dict()
-CURRENT_CALIBRATION['tmp_calib'] = 2.249889
+CURRENT_CALIBRATION['tmp_calib'] = 38.557682
 #USRP_calibration = 0.317
 
 # Server relted info
 SERVER_INFO = manager.dict()
 SERVER_INFO['devices_count'] = 0
+SERVER_INFO['usrp_props'] = "no_info"
+SERVER_INFO['gpu_props'] = "no_info"
+SERVER_INFO['last_ping'] = "-1"
+SERVER_INFO['first_time_async_connect'] = False
 
 def change_calibration(new_calibration):
     '''

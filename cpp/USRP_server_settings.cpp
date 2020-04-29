@@ -3,7 +3,7 @@
 int TCP_SYNC_PORT = 61360;
 int TCP_ASYNC_PORT = 22001;
 
-std::string default_arguments = "addr=192.168.30.2, second_addr=192.168.40.2";
+std::string default_arguments = "";
 std::string device_arguments = "dboard_clock_rate=20e6";
 
 std::string w_type_to_str(w_type enumerator){

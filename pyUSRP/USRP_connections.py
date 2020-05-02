@@ -148,13 +148,8 @@ def Packets_to_file(parameters, timeout=None, filename=None, dpc_expected=None, 
                 current_len_trigger = len(trigger_dataset)
                 trigger_dataset.resize(current_len_trigger+1,0)
                 trigger_dataset[current_len_trigger] = index
+                # trigger_name = str(trigger.__class__.__name__)
 
-                trigger_name = str(trigger.__class__.__name__)
-                if trigger_name == "amplitude_trigger":
-                    trigger_dataset.attrs["bounds"] = trigger.bounds
-                    trigger_dataset.attrs["nglitch"] = trigger.nglitch
-                    trigger_dataset.attrs["glitch_indices"] = trigger.glitch_indices
-                    trigger_dataset.attrs["samples_per_packet"] = trigger.samples_per_packet
         try:
             if data_shape[0] < metadata['channels']:
                 print_warning("Main dataset in H5 file not initialized.")
@@ -476,7 +471,7 @@ def Decode_Async_payload(message):
     '''
     Decode asynchronous payloads coming from the GPU server
     '''
-    global ERROR_STATUS, REMOTE_FILENAME, EOM_cond
+    global ERROR_STATUS, REMOTE_FILENAME, EOM_cond, first_time_connect
 
     try:
         res = json.loads(message)
@@ -508,6 +503,18 @@ def Decode_Async_payload(message):
         EOM_cond.acquire()
         CLIENT_STATUS["END_OF_MEASURE"] = True
         EOM_cond.release()
+
+    if atype == 'server_info':
+        if(not SERVER_INFO['first_time_async_connect']):
+            SERVER_INFO['first_time_async_connect'] = False
+            print_debug("Server info on USRP %s received" % res['number'])
+            SERVER_INFO['devices_count'] = max(SERVER_INFO['devices_count'],int(res['number']))
+            SERVER_INFO['usrp_props'] = res['props']
+            SERVER_INFO['gpu_props'] = "GPU # %d\n\tName: %s\n\tBandwidth: %s\n\tClock rate: %s"\
+                % (int(res['gpu_number']), res['gpu_name'],res['gpu_bw'],res['gpu_clock_rate'])
+            print_debug(res['props'])
+            print_debug("GPU properties: %s" % SERVER_INFO['gpu_props'])
+        SERVER_INFO['last_ping'] = time.time()
 
 
 def Encode_async_message(payload):

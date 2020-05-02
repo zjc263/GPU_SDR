@@ -61,7 +61,7 @@ int main(int argc, char **argv){
     settings.FILE_writing = file_write;
 
     //look for USRP. This must be requested by the client. in this automatic version there is no active config!
-    hardware_manager usrp(&settings,sw_loop);
+    hardware_manager usrp(&settings, sw_loop);
 
     //look for CUDA, initialize memory     (last arg is debug)
     //blocks until tcp data connection is on-line if TCP streamer is enabled
@@ -69,6 +69,11 @@ int main(int argc, char **argv){
 
     //look for USER
     Async_server async(true);
+
+    // Send USRP info
+    json_res = new std::string(format_usrp_info(&usrp, 0));
+    async.send_async(json_res);
+
 
     while(active){
         BOOST_LOG_TRIVIAL(info) << "EVENT_START:92; Main loop";

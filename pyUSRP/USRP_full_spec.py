@@ -442,7 +442,7 @@ def plot_pfb(filename, decimation=None, low_pass=None, backend='matplotlib', out
     if parameters.get(ant[0], 'wave_type')[0] != "NOISE":
         print_warning("The file selected does not have the PFB acquisition tag. Errors may occour")
 
-    fft_tones = parameters.get(ant[0], 'fft_tones')
+    fft_tones = int(parameters.get(ant[0], 'fft_tones'))
     rate = parameters.get(ant[0], 'rate')
     channel_width = rate / fft_tones
     decimation = parameters.get(ant[0], 'decim')
@@ -481,14 +481,14 @@ def plot_pfb(filename, decimation=None, low_pass=None, backend='matplotlib', out
         warnings.simplefilter("ignore")
         z = 20 * np.log10(np.abs(samples[0]))
     try:
-        z_shaped = np.roll(np.reshape(z, (len(z) / fft_tones, fft_tones)), -fft_tones / 2, axis=1)
+        z_shaped = np.roll(np.reshape(z, (int(len(z) / fft_tones), fft_tones)), -int(fft_tones / 2), axis=1)
     except ValueError as msg:
         print_warning("Error while plotting pfb spectra: " + str(msg))
-        cut = len(z) - len(z) / fft_tones * fft_tones
+        cut = int(len(z) - len(z) / fft_tones * fft_tones)
         z = z[:-cut]
         print_debug("Cutting last data (%d samples) to fit" % cut)
         # z_shaped = np.roll(np.reshape(z,(len(z)/fft_tones,fft_tones)),fft_tones/2,axis = 1)
-        z_shaped = np.roll(np.reshape(z, (len(z) / fft_tones, fft_tones)), -fft_tones / 2, axis=1)
+        z_shaped = np.roll(np.reshape(z, (int(len(z) / fft_tones), fft_tones)), -int(fft_tones / 2), axis=1)
 
     # pl.plot(z_shaped.T, alpha = 0.1, color = "k")
     # pl.show()

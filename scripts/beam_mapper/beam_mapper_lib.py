@@ -8,6 +8,8 @@ import matplotlib.pyplot as pl
 from scipy import optimize
 from atpbar import atpbar
 from matplotlib.lines import Line2D
+import multiprocessing
+import ctypes
 
 ###############################################################
 # FUNCTIONS PORTED FROM PYUSRP TO MAKE THIS MODULE STANDALONE #
@@ -127,10 +129,12 @@ def build_time_axis(filename, front_end = 'A_RX2', verbose = True):
     beam_data = get_beam_data(filename)
     beam_data_start = beam_data['ti'][0]
     beam_data_end = max(beam_data['tf'])
-    print(np.argmax(beam_data['tf']))
     f = bound_open(filename)
-    data_t_start = f['raw_data0'][front_end]['data'].attrs.get("start_epoch")
-    data_rate = f['raw_data0'][front_end].attrs.get("rate")/f['raw_data0'][front_end].attrs.get("fft_tones")
+
+    #ret = f[]
+    data_t = np.array(f['raw_data0'][front_end]['timestamps'])
+    data_t_start = min(data_t)
+    data_rate = f['raw_data0'][front_end].attrs.get("rate")
     if f['raw_data0'][front_end].attrs.get("decim")!=0:
         data_rate /= f['raw_data0'][front_end].attrs.get("decim")
 
@@ -164,7 +168,6 @@ def build_time_axis(filename, front_end = 'A_RX2', verbose = True):
 
     return np.asarray([data_t_start + x*(1./data_rate) for x in range(data_len)])
 
-
 def check_beam_embedded(filename):
     '''
     Check if the h5 file containing noise data has the beam data embedded as group.
@@ -197,7 +200,7 @@ def read_beam_csv(csv_filename):
     y = []
     col_name = True
     with open(csv_filename) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
+        csv_reader = csv.reader(csv_file, delimiter='\t')
         line_number = 0
         for row in csv_reader:
             line_number +=1
@@ -206,10 +209,10 @@ def read_beam_csv(csv_filename):
                 col_name = False
             else:
                 try:
-                    ti.append(float(row[0]))
-                    tf.append(float(row[1]))
-                    x.append(float(row[2]))
-                    y.append(float(row[3]))
+                    y.append(int(float(row[0])))
+                    x.append(int(float(row[1])))
+                    ti.append(float(row[2]))
+                    tf.append(float(row[3]))
                 except ValueError:
                     err_msg = "Invalid value at line %d"%line_number
                     print_error(err_msg)
@@ -230,6 +233,7 @@ def get_beam_data(filename):
         - x: x position [inch]
         - y: y position [inch]
     '''
+    print_debug("Getting beam data...")
     filename = format_filename(filename)
     if not check_beam_embedded(filename):
         err_msg = "Beam map data not embedded in the noise file"
@@ -239,10 +243,10 @@ def get_beam_data(filename):
     f = bound_open(filename)
     grp = f['beam_data']
     ret = {
-        'ti': np.asarray(grp['t_init']),
-        'tf': np.asarray(grp['t_final']),
-        'x': np.asarray(grp['x_pos']),
-        'y': np.asarray(grp['y_pos'])
+        'ti': np.array(grp['t_init']),
+        'tf': np.array(grp['t_final']),
+        'x': np.array(grp['x_pos']),
+        'y': np.array(grp['y_pos'])
     }
     f.close()
     return ret
@@ -264,13 +268,13 @@ def embed_beam_data(csv_filename, noise_filename, verbose = True):
         if verbose: print_warning("Overwriting beam data group")
 
     beam_group.create_dataset("t_init", data = data['ti'])
-    beam_group["t_init"].attrs.create(name="unit", data="s epoch")
+    beam_group["t_init"].attrs.create(name="unit", data="seconds")
     beam_group.create_dataset("t_final", data = data['tf'])
-    beam_group["t_final"].attrs.create(name="unit", data="s epoch")
+    beam_group["t_final"].attrs.create(name="unit", data="seconds")
     beam_group.create_dataset("x_pos", data = data['x'])
-    beam_group["x_pos"].attrs.create(name="unit", data="inch")
+    beam_group["x_pos"].attrs.create(name="unit", data="steps")
     beam_group.create_dataset("y_pos", data = data['y'])
-    beam_group["y_pos"].attrs.create(name="unit", data="inch")
+    beam_group["y_pos"].attrs.create(name="unit", data="steps")
 
     fv.close()
     if verbose: print_debug("Embedding complete")
@@ -278,7 +282,7 @@ def embed_beam_data(csv_filename, noise_filename, verbose = True):
     return
 
 
-def extract_frequecy(data, step,time_axis,beam_data, fs, freq, half_span, welch = None, delay = 0):
+def extract_frequecy(data,ch, step,time_axis,beam_data, fs, freq, half_span, welch = None, delay = 0):
     '''
     Perform fft and extract frequency db amplitude.
     :return db amplitude value.
@@ -288,13 +292,15 @@ def extract_frequecy(data, step,time_axis,beam_data, fs, freq, half_span, welch 
     end = find_nearest(time_axis,beam_data['tf'][step]-delay)
     #print "delats: init: %.3f end %.3f"%(time_axis[start] - (beam_data['ti'][step]-delay) , time_axis[end] - (beam_data['tf'][step]-delay))
     #data = data_[start:end]
-    L = len(data[start:end])
+    L = len(data[ch][start:end])
     if welch == None:
         welch = L
     else:
         welch = int(L / welch)
+    #Frequencies, ampl = signal.welch(np.abs(data[start:end]), nperseg=welch, fs=fs, detrend='linear', scaling='density')
+    # Frequencies, ampl = signal.welch(np.angle(data[ch][start:end]), nperseg=welch, fs=fs, detrend='linear', scaling='density')
+    Frequencies, ampl = signal.welch(data[ch][start:end], nperseg=welch, fs=fs, detrend='linear', scaling='density')
 
-    Frequencies, ampl = signal.welch(np.abs(data[start:end]), nperseg=welch, fs=fs, detrend='linear', scaling='density')
     ampl = 10 * np.log10(ampl)
     idx = find_nearest(Frequencies, freq)
     idx_up = find_nearest(Frequencies, freq+half_span)
@@ -306,8 +312,10 @@ def extract_frequecy(data, step,time_axis,beam_data, fs, freq, half_span, welch 
         idx_down = find_nearest(Frequencies, freq-half_span)
         print_warning("Frequency half_span too low. extending to: %.1f Hz" % span)
 
-    return np.max(ampl[idx_down:idx_up])
+    #retmax = max(np.max(ampl[idx_down:idx_up]),np.max(phase[idx_down:idx_up]))
+    #return retmax
 
+    return np.max(ampl[idx_down:idx_up])
 
 def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, welch = None):
     '''
@@ -327,7 +335,7 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
     tone_freq = np.asarray(fp['raw_data0'][front_end].attrs.get("freq")) + fp['raw_data0'][front_end].attrs.get("rf")
     n_chan = len(fp['raw_data0'][front_end]['data'])
     n_step = len(beam_data['ti'])
-    data_rate = fp['raw_data0'][front_end].attrs.get("rate")/fp['raw_data0'][front_end].attrs.get("fft_tones")
+    data_rate = fp['raw_data0'][front_end].attrs.get("rate")
     if fp['raw_data0'][front_end].attrs.get("decim")!=0:
         data_rate /= fp['raw_data0'][front_end].attrs.get("decim")
 
@@ -336,7 +344,7 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
         if (a.ctypes.data % alignment) == 0:
             return a
 
-        extra = alignment / a.itemsize
+        extra = int(alignment / a.itemsize)
         buf = np.empty(a.size + extra, dtype=a.dtype)
         ofs = (-buf.ctypes.data % alignment) / a.itemsize
         aa = buf[ofs:ofs+a.size].reshape(a.shape)
@@ -344,13 +352,34 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
         assert (aa.ctypes.data % alignment) == 0
         return aa
 
-    data = np.asarray([aligned(ch) for ch in data])
+    #data = np.asarray([aligned(ch) for ch in data])
+    print_debug("Creating shared memory data size: "+str(data.nbytes) + " ...")
 
-    if verbose: print_debug("Calculating ffts...")
-    beam_map = Parallel(n_jobs=24, verbose=False, require='sharedmem')(
+    # shared_array_base = multiprocessing.Array(data)
+    #
+    #
+    # exit()
+    # pool = multiprocessing.Pool(processes=4)
+    # if verbose: print_debug("Calculating ffts...")
+
+    # folder = './joblib_memmap'
+    # try:
+    #     os.mkdir(folder)
+    # except FileExistsError:
+    #     pass
+    #
+    # data_filename_memmap = os.path.join(folder, 'data_memmap')
+    # dump(data, data_filename_memmap)
+    # data = load(data_filename_memmap, mmap_mode='r')
+    data_conv = []
+    for i in range(len(data)):
+        phase = np.angle(data[i])
+        data_conv.append(np.abs(phase - np.min(phase)))
+
+    beam_map = Parallel(n_jobs=15, verbose=False, backend="multiprocessing")(# require='sharedmem')(
         delayed(extract_frequecy)(
-    #beam_map = [extract_frequecy(
-            data = data[ch],
+            data = data,
+            ch = ch,
             time_axis = time_axis,
             beam_data = beam_data,
             step = step,
@@ -361,7 +390,8 @@ def build_map(filename, freq, half_span, front_end = 'A_RX2', verbose = True, we
             delay = 0
         )  for ch in atpbar(list(range(n_chan)), name='channels') for step in atpbar(list(range(n_step)), name='motor steps')
     )
-    #]
+
+
     fp.close()
     if verbose: print_debug("Writing beam map to file...")
     fv = h5py.File(filename,'r+')
@@ -392,6 +422,7 @@ def get_full_beam_map_data(filename):
     Returen beam map data from a h5 file. The file has to be previoulsy analyzed with the function build_map().
     '''
     beam_data = get_beam_data(filename)
+
     filename = format_filename(filename)
     fp = bound_open(filename)
     try:
@@ -421,7 +452,7 @@ def get_full_beam_map_data(filename):
 
     return ret
 
-def plot_beam_map(filename, cmap = 'Greys', levels = None):
+def plot_beam_map(filename, cmap = 'Greys_r', levels = None):
     '''
     Plot the beam map stored on the h5 file.
     '''
@@ -438,32 +469,39 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
 
 
     #reconstruct axis
-    xvec = np.linspace(min(beam_data['x']),max(beam_data['x']),beam_data['nx'])
-    yvec = np.linspace(min(beam_data['y']),max(beam_data['y']),beam_data['ny'])
+    xvec = np.linspace(min(beam_data['x']),max(beam_data['x']),beam_data['nx'])/4.
+    yvec = np.linspace(min(beam_data['y']),max(beam_data['y']),beam_data['ny'])/4.
     step_x = xvec[1]-xvec[0]
     step_y = yvec[1]-yvec[0]
-    sx = 14
-    sy = sx*float(step_y)/float(step_x)
+    sx = 10
+    sy = 9#sx*float(step_y)/float(step_x)
     print_debug("aspect ratio: %.2f"%(float(step_y)/float(step_x)))
     X,Y=np.meshgrid(yvec,xvec)
 
+
     if levels == None:
-        levels = [-110,-90,-85,]
+        levels = [-80]
 
     linewidths = np.linspace(0.5,1.5,len(levels))
     centers = []
+    import matplotlib.gridspec as gridspec
+
     for i in atpbar(list(range(beam_data['n_chan'])), name='channels plot'):
-        fig, ax = pl.subplots(figsize=(sx,sy))
+        # fig, ax = pl.subplots(nrows=3, ncols=3, dpi=300)#figsize=(sx,sy))
+        fig = pl.figure(dpi=300, figsize=(10,10))
+        widths = [0.7, 1, 1]
+        heights = [0.7, 1, 1]
+        gspec = gridspec.GridSpec(3, 3, width_ratios=widths, height_ratios=heights, hspace=0.,wspace=0.)
+        #gspec.update(left=0,right=0.9,top=0.965,bottom=0.03,wspace=0.3,hspace=0.09)
 
         Z = np.reshape(beam_data['data'][i],(beam_data['nx'],beam_data['ny']))
-        g = pl.pcolormesh(X,Y,Z, cmap = cmap, alpha = 0.7)
+
         #fitting
         params = fitgaussian(10**(Z/20))
         fit = gaussian(*params)
         fit_data = fit(*np.indices(Z.shape))
         #rint params
         fit_level = [np.max(fit_data)*0.64]
-        pl.contour(X, Y, fit_data, colors='red', levels = fit_level)
         #"gaussian fit:\nCenter: %.2f %.2f"%(params[0],params[1])
         (y_max,x_max) = np.unravel_index(np.argmax(fit_data, axis=None), fit_data.shape)
         x_max = xvec[min(x_max,len(xvec)-1)]
@@ -471,41 +509,109 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
         #x_max = params[1]
         #y_max = params[2]
         centers.append((x_max,y_max))
-        
+
+        legend_space = pl.subplot(gspec[0, 0])
+        top_histogram = pl.subplot(gspec[0, 1:])
+
+        side_histogram = pl.subplot(gspec[1:, 0])
+        lower_right = pl.subplot(gspec[1:, 1:])
+
+        H = (Z - 0)#np.min(Z))
+
+
+        # YY = np.sum(H,axis = 1)
+        YY = np.transpose(H)[int(x_max*4)-1]
+        #YY/= np.max(YY)
+
+        side_histogram.plot(YY,yvec,alpha = 0.7, color='k')
+        side_histogram.set_ylabel('Y posiiton [In]')
+        side_histogram.set_ylim(min(yvec), max(yvec))
+        side_histogram.grid()
+        side_histogram.invert_xaxis()
+        # XX = np.sum(H,axis = 0)
+        XX = (H)[int(y_max*4)-1]
+        #XX/= np.max(XX)
+        top_histogram.plot(xvec,XX, alpha = 0.7, color='k')
+        top_histogram.grid()
+        top_histogram.set_xlabel('X position [In]')
+        top_histogram.xaxis.set_label_position('top')
+        top_histogram.xaxis.tick_top()
+        top_histogram.set_xlim(min(xvec), max(xvec))
+        # top_histogram.xaxis.set_ticks(xvec)
+        top_histogram.yaxis.set_label_position('right')
+        top_histogram.yaxis.tick_right()
+
+        g = lower_right.pcolormesh(X,Y,Z, cmap = cmap, alpha = 0.7)
+
+
+
+
+        pl.contour(X, Y, fit_data, colors='red', levels = fit_level)
+        pl.axis('off')
+
+
+
+        Hf = (fit_data  - np.min(fit_data))
+        Hf/= np.max(Hf)
+
+        # Xf = np.sum(Hf,axis = 0)
+        Xf = np.transpose(Hf)[int(x_max*4)-1]
+        Xf*= (np.max(XX)-np.min(XX))/np.max(Xf)
+        Xf += np.min(XX)
+
+
+
+        # Yf = np.sum(Hf,axis = 1)
+        Yf = Hf[int(x_max*4)-1]
+        Yf*= (np.max(YY)-np.min(YY))/np.max(Yf)
+        Yf += np.min(YY)
+
+        # top_histogram.plot(xvec,Xf, alpha = 0.7, color='r')
+        # side_histogram.plot(Yf,yvec,alpha = 0.7, color='r')
+
+
+
         fit_label = "2D gaussian fit 64%"
-        fit_label+="\nCenter X: %.2f Y: %.2f [inch]"%(x_max,y_max)
-        fit_label+="\nAsymmetry $|1-x/y|$: %.2f"%(np.abs(1-params[3]/params[4]))
+        fit_label+="\nCenter: %.2f/%.2f"%(x_max,y_max)
+        fit_label+="\nAsym $|1-x/y|$: %.2f"%(np.abs(1-params[3]/params[4]))
         fit_label+="\nRotation: $%.1f^o$"%params[5]
         colors = ['black', 'red']
-        lines = [Line2D([0], [0], color=c, linewidth=2, linestyle='-') for c in colors]
-        labels = ['Beam map level', fit_label]
-        pl.legend(lines, labels)
+        lines = [Line2D([0], [0], color=c, linewidth=3, linestyle='-') for c in colors]
+        labels = ['X/Y projections\nfrom center', fit_label]
+        # lines = lines[1:]
+        # labels = labels[1:]
+        legend_space.axis('off')
+        legend_space.legend(lines, labels, loc=(0,0.2))#, handlelength = 0, edgecolor='r')
+
+
 
         contours = pl.contour(X, Y, Z, colors='black',
             levels = levels, linestyles = 'solid', antialiased = True, linewidths = linewidths)
         pl.clabel(contours, inline=False, fontsize=10)
+        lower_right.set_aspect('equal')
 
-        cbar = pl.colorbar(g)
-        cbar.set_label( "$%d\pm%.1f Hz$ line magnitude [dBm]"%(beam_data['freq'],beam_data['half_span']), rotation=270, labelpad=30)
+        # pl.scatter(
+        #     #xvec[int(params[1])] * np.cos(np.radians(params[5])),
+        #     #yvec[int(params[2])] * np.sin(np.radians(params[5])),
+        #     [x_max],
+        #     [y_max],
+        #     color = 'red'
+        # )
 
+        cb_ax = fig.add_axes([0.93, 0.1, 0.02, 0.56])
+        cbar = fig.colorbar(g, cax=cb_ax)
+        # cbar = pl.colorbar(g)
+        cbar.set_label( "$%d\pm%.1f Hz$ line phase [ADC dB]"%(beam_data['freq'],beam_data['half_span']), rotation=270, labelpad=20)
 
-        pl.scatter(
-            #xvec[int(params[1])] * np.cos(np.radians(params[5])),
-            #yvec[int(params[2])] * np.sin(np.radians(params[5])),
-            [x_max],
-            [y_max],
-            color = 'red'
-        )
-
-        pl.xlabel('X position [Inches]')
-        pl.ylabel('Y posiiton [Inches]')
-        pl.title("Beam map: channel %.2fMHz"%(beam_data['tone_freq'][i]/1e6))
-        pl.savefig("channel%d.png"%(i))
+        pl.suptitle("Beam map: channel %.2fMHz"%(beam_data['tone_freq'][i]/1e6), y= 0.95)
+        pl.margins(10)
+        pl.savefig("phase_channel%d.png"%(i), bbox_inches = "tight")#,pad_inches=1)#, bbox="tight")
 
         pl.close(fig)
+
     print_debug("Printing resonators map...")
     centers = list(zip(*centers))
-    fig, ax = pl.subplots(figsize=(20,20))
+    fig, ax = pl.subplots(dpi=300)
     #pl.scatter(centers[0], centers[1], marker = '+')
     pl.title("Resonators position")
     for i in range(len(centers[0])):
@@ -513,8 +619,8 @@ def plot_beam_map(filename, cmap = 'Greys', levels = None):
         #ax.annotate("%.2fMHz"%(beam_data['tone_freq'][i]/1e6),(centers[0][i], centers[1][i]))
         #ax.annotate("%d"%i,(centers[0][i], centers[1][i]))
         pl.scatter([min(xvec),max(xvec)],[min(yvec),max(yvec)],alpha=0,label =  "%d, %.2fMHz"%(i,beam_data['tone_freq'][i]/1e6))
-    pl.xlabel('X position [Inches]')
-    pl.ylabel('Y posiiton [Inches]')
+    pl.xlabel('X position [In]')
+    pl.ylabel('Y posiiton [In]')
     pl.legend(ncol = 4,bbox_to_anchor=(1.04,1), loc="upper left")
     pl.grid()
     pl.savefig("channel_map.png",bbox_inches="tight")

@@ -447,6 +447,28 @@ std::string server_ack(std::string payload){
     return res.str();
 }
 
+
+//! @brief Format the USRP information to be sent to the client.
+std::string format_usrp_info(hardware_manager *usrp, int number = 0){
+  std::cout<<"sending info..."<<std::endl;
+    std::stringstream res;
+    boost::property_tree::ptree response;
+    response.put("type","server_info");
+    // Get the info from the hardware_manager
+    response.put("number",number);
+    response.put("gpu_name",usrp->props[0].name);
+    response.put("gpu_bw",usrp->props[0].memoryBusWidth);
+    response.put("gpu_clock_rate",usrp->props[0].memoryClockRate);
+    response.put("gpu_number",0);// TODO: this is limited to one device per server now
+    if(not usrp->sw_loop){
+      response.put("props",usrp->main_usrp->get_pp_string());
+    }else{
+      response.put("props","Device: software_loop");
+    }
+    boost::property_tree::write_json(res,response);
+    return res.str();
+}
+
 std::string server_nack(std::string payload){
     std::stringstream res;
     boost::property_tree::ptree response;

@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument('--folder', '-fn', help='Name of the main folder in which the data are stored', type=str, default = "data")
     parser.add_argument('--sub_folder', '-sf', help='Name of the subfolder in which the calibration data are stored', type=str, default = "calibration")
     parser.add_argument('--loopback', '-l', help='Value in dB for total loopback attenuation', type=float, required=True)
+    parser.add_argument('--gain', '-g', help='TX gain value in dB', type=int, default=0)
 
     #will be removed when a full Dboard calibration is in place
     parser.add_argument('--freq', '-f', help='Central frequency where to calibrate', type=float, required=True)
@@ -69,10 +70,10 @@ if __name__ == "__main__":
     # Set the variables for the scans
 
     # Should be retrived from server properties, communication scheme not implemented yet
-    DCARD_ANALOG_BW = 120e6
+    DCARD_ANALOG_BW = 20e6
 
     # Should as well be setted with a bechmark_rate-like automatic program
-    SYSTEM_MAX_RATE = 200e6
+    SYSTEM_MAX_RATE = 20e6
 
     # This could become a user argument
     FILTER_LENGTH = 10000
@@ -121,7 +122,7 @@ if __name__ == "__main__":
         last_f = DCARD_ANALOG_BW/2,
         measure_t = MEASURE_TIME,
         n_points = FILTER_LENGTH,
-        tx_gain = 0,
+        tx_gain = args.gain,
         Rate=SYSTEM_MAX_RATE,
         decimation=True,
         RF=CENTRAL_FREQUENCY,
@@ -167,7 +168,13 @@ if __name__ == "__main__":
     #calculation for the right calib constant
     freq, S21 =  u.get_VNA_data(vna_filename, calibrated = True, usrp_number = 0)
     baseband_freq_abs = np.abs(freq - CENTRAL_FREQUENCY)
-    select_vector = np.logical_and(baseband_freq_abs<FLAT_HALF_BW , baseband_freq_abs>SPIKE_HALF_BW)
+    select_vector = np.ones(len(freq)) #np.logical_and(baseband_freq_abs<FLAT_HALF_BW , baseband_freq_abs>SPIKE_HALF_BW)
+    print("Excluding first and last %d points."%int(len(select_vector)*0.2))
+    for i in range(int(len(select_vector)*0.2)):
+            select_vector[i] = 0
+            select_vector[-i] = 0
+    select_vector = np.asarray(select_vector, dtype=bool)
+    print(select_vector)
     current_level = u.linear2db(np.abs(np.mean(S21[select_vector])))
     difference = -(current_level + args.loopback)
     calculated_calibration = u.db2linear(difference)

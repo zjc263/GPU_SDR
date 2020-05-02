@@ -28,6 +28,9 @@ class hardware_manager{
         //address of the device controlled by this instance
         uhd::usrp::multi_usrp::sptr main_usrp;
 
+        //host info about the gpus assigned to this hardware manager
+        std::vector<cudaDeviceProp> props;
+
         //! @brief The initializer of the class can be used to select which usrp is controlled by the class
         //! Default call suppose only one USRP is connected
         hardware_manager(server_settings* settings, bool sw_loop_init, size_t usrp_number = 0);
@@ -173,6 +176,10 @@ class hardware_manager{
 
         //array of usrp addresses
         uhd::device_addrs_t dev_addrs;
+
+        // Ettus N321 has the possibility of exporting the LO.
+        // This variable declare it as a valid configuration.
+        bool flag_export_lo = false;
 
         //last configuration of the usrp device
         usrp_param config;

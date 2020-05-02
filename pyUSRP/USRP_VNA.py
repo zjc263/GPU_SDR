@@ -837,13 +837,12 @@ def VNA_analysis(filename, usrp_number = 0):
 
     vna_grp.attrs.create("scan_lengths", length)
     vna_grp.attrs.create("calibration", calibration)
-
     vna_grp.create_dataset("frequency", data = freq_axis, dtype=np.float64)
     vna_grp.create_dataset("S21", data = S21_axis, dtype=np.complex128)
 
     f.close()
 
-    print_debug("Analysis of file \'%s\' concluded."%filename)
+    print_debug("Analysis of file \'%s\' concluded. Calibration %f stored"%(filename,calibration[0]))
 
 
 def plot_VNA(filenames, backend = "matplotlib", output_filename = None, unwrap_phase = True, verbose = False, plot_decim = None, **kwargs):

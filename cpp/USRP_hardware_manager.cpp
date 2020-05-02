@@ -61,6 +61,20 @@ void hardware_manager::reset_usrp_host(){
 	BOOST_LOG_TRIVIAL(debug) << "EVENT_END:-1; USRP host descriptor reset complete";
 }
 
+std::string get_device_type(uhd::device_addr_t device){
+	std::string device_string;
+	device_string = device.to_string();
+	size_t start = device_string.find("type=")+5;
+	size_t end = device_string.find(",",start);
+	std::string dev_type;
+	dev_type = device_string.substr(start, end-start);
+	std::cout<< "Detected type: " << dev_type <<std::endl;
+	return dev_type;
+	// vector<string> this_hardware_prop
+	// boost::split(this_hardware_prop, dev_addrs[0].to_string(), boost::is_any_of(","));
+
+}
+
 //! @brief Initializer of the class can be used to select which usrp is controlled by the class
 //! Default call suppose only one USRP is connected
 //! @todo TODO: the multi_usrp object has to be passed as argument to this initializer. Multiple usrp's will crash as the obj is not ts
@@ -76,8 +90,10 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
     //in any case a gpu is necessary
     cudaSetDevice(settings->GPU_device_index);
-    cudaDeviceProp props;
-    cudaGetDeviceProperties(&props, settings->GPU_device_index);
+    props.resize(1);
+    cudaGetDeviceProperties(&(props[0]), settings->GPU_device_index);
+
+
 
 
     if(not sw_loop){
@@ -86,32 +102,44 @@ hardware_manager::hardware_manager(server_settings* settings, bool sw_loop_init,
 
         //recursively look for usrps
         dev_addrs = uhd::device::find(hint);
-        std::cout<<"Looking for USRP x300 device number "<< usrp_number << " .." <<std::flush;
+        std::cout<<"Looking for USRP device number "<< usrp_number << " .." <<std::flush;
         while(dev_addrs.size()< usrp_number + 1){
 
             dev_addrs = uhd::device::find(hint);
             std::cout<<"."<<std::flush;
-            usleep(1e6);
         }
 
 
-        std::cout<<"Device found and assigned to GPU "<< props.name <<" ("<< settings->GPU_device_index <<")"<<std::endl;
-        //for(size_t ii = 0; ii<dev_addrs.size(); ii++){
-        //    std::cout<<dev_addrs[ii].to_pp_string()<<std::endl;
-        //}
-        //assign desired address
+        std::cout<<"Device found and assigned to GPU "<< props[0].name <<" ("<< settings->GPU_device_index <<")"<<std::endl;
 
-
-				//uhd::device_addr_t args("addr=192.168.30.2,second_addr=192.168.40.2");
-				device_arguments = default_arguments;
-				if(device_arguments.compare(default_arguments)==0){
+				std::cout<< "device_arguments is: "<< device_arguments<<std::endl;
+				if(device_arguments.compare("noarg")==0){
+					device_arguments = default_arguments;
+					std::string device_type = get_device_type(dev_addrs[0]);
+					std::string device_series = device_type.substr(0,1);
+					std::cout<< "Device series: "<< device_series <<std::endl;
+					if((device_type.substr(0,1)).compare("n")==0){ // Detect if n series
+						device_arguments+= " master_clock_rate=200e6";
+						flag_export_lo = true;
+					}else if((device_type.substr(0,1)).compare("x")==0){ // Detect x series
+						device_arguments+= " addr=192.168.30.2, second_addr=192.168.40.2";
+					}
 					uhd::device_addr_t args(device_arguments);
-					main_usrp = uhd::usrp::multi_usrp::make(args);
 					std::cout<< "Creating device with arguments: "<<device_arguments <<std::endl;
+					main_usrp = uhd::usrp::multi_usrp::make(args);
 				}else{
-					print_warning("Multi-USRP configuration does not set the 20MHz Dboard clock rate");
-					main_usrp = uhd::usrp::multi_usrp::make(dev_addrs[usrp_number]);
+					// print_warning("Multi-USRP configuration does not set the 20MHz Dboard clock rate");
+					uhd::device_addr_t args(device_arguments);
+					std::cout<< "Creating device with arguments: "<<device_arguments <<std::endl;
+					main_usrp = uhd::usrp::multi_usrp::make(args);
+					std::cout<< "Master clock rate set to "<< double(main_usrp->get_master_clock_rate())/1e6 << " MHz"<<std::endl;
 				}
+
+
+				// uhd::device_addr_t args("master_clock_rate=200e6");
+				// main_usrp = uhd::usrp::multi_usrp::make(args);
+				// main_usrp->set_master_clock_rate(200e6);
+
 
 				// Get Dboards or channels properties.
 				fill_board_prop();
@@ -197,7 +225,7 @@ void hardware_manager::fill_board_prop(){
 
 		// From here all info are collected from the RX line.
 		tmp_prop.name = short_name_rx;
-		LO_names = main_usrp->get_rx_lo_sources("ALL_LOS",i);
+		LO_names = main_usrp->get_rx_lo_sources(uhd::usrp::multi_usrp::ALL_LOS,i);
 		if (LO_names.size() > 0){
 			tmp_prop.has_mixers = (bool)true;
 			tmp_prop.max_freq = main_usrp->get_rx_freq_range(i).stop();
@@ -910,25 +938,46 @@ std::string hardware_manager::apply_antenna_config(param *parameters, param *old
 
                         if(not sw_loop){
                             main_usrp->get_rx_sensor("lo_locked",chan).to_bool();
-                            if(not parameters->tuning_mode){
+                            if(parameters->tuning_mode == 0){
 
                                 uhd::tune_request_t tune_request(parameters->tone);
                                 tune_request.args = uhd::device_addr_t("mode_n=integer");
                                 main_usrp->set_rx_freq(tune_request,chan);
-                            }else{
+                            }else if(parameters->tuning_mode == 1){
                                 uhd::tune_request_t tune_request(parameters->tone);
                                 main_usrp->set_rx_freq(tune_request,chan);
-                            }
+                            }else if(parameters->tuning_mode == 2){
+																main_usrp->set_rx_lo_source("external", "lo1", chan);
+		                        }else if(parameters->tuning_mode == 3){
+															uhd::tune_request_t tune_request(parameters->tone);
+															tune_request.args = uhd::device_addr_t("mode_n=integer");
+															main_usrp->set_rx_freq(tune_request,chan);
+
+		                        }else if(parameters->tuning_mode == 4){
+															uhd::tune_request_t tune_request(parameters->tone);
+	                            main_usrp->set_tx_freq(tune_request,chan);
+
+		                        }
 
                             old_parameters->tone = main_usrp->get_rx_freq(chan);
                         } else old_parameters->tone = parameters->tone;
                         old_parameters->tuning_mode = parameters->tuning_mode;
-                        ss << boost::format("\tSetting RX central frequency: %f MHz. ") % (parameters->tone / 1e6);
-                        if(parameters->tuning_mode){
-                            ss<<" (fractional) ";
-                        }else{
-                            ss<<" (integer) ";
-                        }
+												if(parameters->tuning_mode == 1){
+														ss << boost::format("\tSetting RX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+		                        ss<<" (fractional) ";
+		                    }else if (parameters->tuning_mode == 0){
+														ss << boost::format("\tSetting RX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+		                        ss<<" (integer) ";
+		                    }else if (parameters->tuning_mode == 2){
+													ss << "\tSetting TX central frequency: ";
+													ss<<" (from ext "<< IMPORT_LO_CHANNEL <<") ";
+												}else if (parameters->tuning_mode == 3){
+													ss << boost::format("\tSetting RX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+													ss<<" (to ext " << EXPORT_LO_CHANNEL<< " integer) ";
+												}else if (parameters->tuning_mode == 4){
+													ss << boost::format("\tSetting RX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+													ss<<" (to ext " << EXPORT_LO_CHANNEL<< " fractional) ";
+												}
                         ss<< std::flush;
 
 
@@ -936,14 +985,25 @@ std::string hardware_manager::apply_antenna_config(param *parameters, param *old
 
                     if(not sw_loop){
                         main_usrp->get_tx_sensor("lo_locked",chan).to_bool();
-                        if(not parameters->tuning_mode){
+                        if(parameters->tuning_mode == 0){
 
                             uhd::tune_request_t tune_request(parameters->tone);
                             tune_request.args = uhd::device_addr_t("mode_n=integer");
                             main_usrp->set_tx_freq(tune_request,chan);
-                        }else{
+                        }else if(parameters->tuning_mode == 1){
                             uhd::tune_request_t tune_request(parameters->tone);
                             main_usrp->set_tx_freq(tune_request,chan);
+                        }else if(parameters->tuning_mode == 2){
+														main_usrp->set_tx_lo_source("external", "lo1", chan);
+                        }else if(parameters->tuning_mode == 3){
+													uhd::tune_request_t tune_request(parameters->tone);
+													tune_request.args = uhd::device_addr_t("mode_n=integer");
+													main_usrp->set_rx_freq(tune_request,chan);
+
+                        }else if(parameters->tuning_mode == 4){
+													uhd::tune_request_t tune_request(parameters->tone);
+													main_usrp->set_tx_freq(tune_request,chan);
+
                         }
                         old_parameters->tone = main_usrp->get_tx_freq(chan);
                     }else{
@@ -951,12 +1011,23 @@ std::string hardware_manager::apply_antenna_config(param *parameters, param *old
                     }
                     old_parameters->tuning_mode = parameters->tuning_mode;
 
-                    ss << boost::format("\tSetting TX central frequency: %f MHz. ") % (parameters->tone / 1e6);
-                    if(parameters->tuning_mode){
+
+                    if(parameters->tuning_mode == 1){
+												ss << boost::format("\tSetting TX central frequency: %f MHz. ") % (parameters->tone / 1e6);
                         ss<<" (fractional) ";
-                    }else{
+                    }else if (parameters->tuning_mode == 0){
+												ss << boost::format("\tSetting TX central frequency: %f MHz. ") % (parameters->tone / 1e6);
                         ss<<" (integer) ";
-                    }
+                    }else if (parameters->tuning_mode == 2){
+											ss << "\tSetting TX central frequency: ";
+											ss<<" (from ext "<< IMPORT_LO_CHANNEL <<") ";
+										}else if (parameters->tuning_mode == 3){
+											ss << boost::format("\tSetting TX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+											ss<<" (to ext " << EXPORT_LO_CHANNEL<< " integer) ";
+										}else if (parameters->tuning_mode == 4){
+											ss << boost::format("\tSetting TX central frequency: %f MHz. ") % (parameters->tone / 1e6);
+											ss<<" (to ext " << EXPORT_LO_CHANNEL<< " fractional) ";
+										}
                     ss<< std::flush;
                 }
 

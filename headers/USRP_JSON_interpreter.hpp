@@ -2,6 +2,8 @@
 #ifndef USRP_JSON_INCLUDED
 #define USRP_JSON_INCLUDED
 #include "USRP_server_settings.hpp"
+#include "USRP_hardware_manager.hpp"
+
 #include <boost/property_tree/json_parser.hpp>
 
 #define MAX_MSG_LEN = 10000
@@ -20,5 +22,7 @@ bool chk_param(usrp_param *parameter);
 std::string server_ack(std::string payload);
 
 std::string server_nack(std::string payload);
+
+std::string format_usrp_info(hardware_manager *usrp, int number);
 
 #endif

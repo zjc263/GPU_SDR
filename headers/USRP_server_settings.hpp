@@ -97,9 +97,15 @@ using namespace logging::trivial;
 
 //buffer safety lengths
 #define MAX_USEFULL_BUFFER 6000000
-#define MIN_USEFULL_BUFFER 50000
+#define MIN_USEFULL_BUFFER 100
 
 #define DEFAULT_BUFFER_LEN 1000000
+
+//Export LO channel
+#define EXPORT_LO_CHANNEL 1
+
+//Import LO channel
+#define IMPORT_LO_CHANNEL 4
 
 //! @brief Port used for client server communication.
 extern int TCP_SYNC_PORT;
@@ -142,7 +148,7 @@ struct param{
     float burst_on;  //time length of the bursts in seconds
     float burst_off; //time between bursts in seconds
     size_t buffer_len;  //length of the transport buffer (both GPU and USRP). SET to 0 for default.
-    bool tuning_mode;   //0 for integer and 1 for fractional
+    uint tuning_mode;   //0 for integer and 1 for fractional
     //software signal parameters
     std::vector<int> freq;
     std::vector<w_type> wave_type;
